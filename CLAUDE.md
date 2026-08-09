@@ -58,3 +58,12 @@ See `SUBMISSION_CHECKLIST.md` for the live list. As of this handoff:
 open-source/licensing decision is settled (Apache 2.0, not blocked on
 anything); everything else — build verification, benchmark numbers, demo
 video — is still open.
+
+## Session handoff log
+
+`REVIEW.md` is a shared log between Claude Code sessions and Claude chat
+sessions — read it (most recent entry first) before starting work, and
+append a new entry to it when wrapping up a session that did anything
+worth remembering (a real change, a decision, a new blocker). It already
+has one entry covering how this scaffold came to exist; treat that as the
+baseline, not as something to re-derive from the code.
