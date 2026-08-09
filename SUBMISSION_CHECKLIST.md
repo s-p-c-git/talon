@@ -2,15 +2,11 @@
 
 Deadline: **Aug 14, 2026 @ 4:00pm PDT**
 
-## Before writing any more code
+## Decided
 
-- [ ] Get organizer clarification (devevang@arm.com) on whether Track 3
-      is governed by the blanket "public repo, MIT/Apache license"
-      requirement or the track-specific "proof artifacts only" line —
-      the current page states both. This determines whether this repo
-      needs to exist at all, or whether screenshots/video would suffice.
-- [ ] Decide MIT vs. Apache 2.0 once confirmed required — this repo is
-      currently scaffolded for Apache 2.0 (NOTICE-file attribution).
+- [x] Open-source regardless of which rule actually governs Track 3 —
+      not waiting on organizer clarification. Repo is public, Apache 2.0
+      (`LICENSE` + `NOTICE`-file attribution).
 
 ## Devpost required fields
 
