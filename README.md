@@ -47,35 +47,46 @@ rather than reimplementing JNI/CMake wiring from scratch — see
 for the canonical version of these steps.
 
 ### Prerequisites
-- Android Studio (latest) + Android NDK ≥ 28.0.12433566
-- Java 17 JDK
+- Android Studio (latest) or Android SDK (compileSdk 34) + Java 17 JDK
 - Python ≥ 3.10
 - An Arm-powered Android phone with the `i8mm` CPU feature, ≥ 16GB RAM
 - `adb` on your PATH
+- Android NDK ≥ 28.0.12433566 — only needed for the optional
+  `scripts/setup.sh --build-aar` path (custom backends)
 
-### 1. Build the ExecuTorch Android Archive (AAR)
+### 1. Set up the ExecuTorch checkout (for model export)
+
+`app/build.gradle.kts` depends on the published `org.pytorch:executorch-android`
+Maven artifact (XNNPACK + KleidiAI enabled by default since ExecuTorch 0.7)
+— no AAR build from source needed for this project's default config.
 
 ```bash
-git clone https://github.com/pytorch/executorch.git
-cd executorch
-export ANDROID_NDK=$ANDROID_HOME/ndk/29.0.14206865/
-export ANDROID_ABI=arm64-v8a
-export ANDROID_SDK=$ANDROID_HOME
-sh scripts/build_android_library.sh
+./scripts/setup.sh
 ```
+
+This clones a local `executorch/` checkout (needed by `scripts/export_model.py`
+in the next step) and `executorch-examples/` (the reference LlamaDemo app,
+kept as a live diff target for API drift — ExecuTorch's Java/Kotlin API is
+`@Experimental` and has changed across releases; re-diff `MainActivity.kt`
+against it before trusting the signatures if you're building against a
+different pinned version).
+
+Only pass `--build-aar` (and set `ANDROID_HOME`) if you need a non-default
+backend, like QNN or Vulkan, that isn't in the published artifact.
 
 ### 2. Export and quantize the model
 
 ```bash
-cd ../talon
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r scripts/requirements.txt
-python3 scripts/export_model.py --model llama3_2-1B --quant 4bit-groupwise
+python3 scripts/export_model.py --model llama3_2 --checkpoint <path/to/consolidated.00.pth> --params <path/to/params.json> --quant 4bit-groupwise
 ```
 
-This produces `model.pte` and `tokenizer.bin` — see `scripts/export_model.py`
-for the exact quantization args used (4-bit groupwise PTQ, matching the
-challenge's "Model size" and "Model speed" optimization categories).
+This produces `model.pte` — see `scripts/export_model.py` for the exact
+quantization args used (4-bit groupwise PTQ via ExecuTorch's
+`llama_xnnpack.yaml` config preset, matching the challenge's "Model size"
+and "Model speed" optimization categories). Copy the model's `tokenizer.model`
+alongside it as `tokenizer.bin` before the next step.
 
 ### 3. Push model artifacts to device
 

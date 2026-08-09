@@ -24,9 +24,19 @@ Deadline: **Aug 14, 2026 @ 4:00pm PDT**
 
 ## Build-and-verify (do this yourself, not just read the README)
 
+- [x] Source-level API audit: diffed `MainActivity.kt`'s ExecuTorch calls
+      and `scripts/export_model.py`'s export CLI against the current
+      pytorch/executorch and meta-pytorch/executorch-examples source
+      (2026-08-09, sandboxed session with no Android SDK/device — see
+      `REVIEW.md` entry for what was and wasn't possible to verify this
+      way). Found and fixed real drift; see that entry for details.
+- [ ] `./gradlew :app:assembleDebug` actually run to completion — not yet;
+      needs a real Android SDK (compileSdk 34) and network access to
+      Google's Maven repo, neither available in the sandbox this was
+      audited in
 - [ ] `scripts/setup.sh` runs clean on a fresh checkout
 - [ ] Model export via `scripts/export_model.py` produces a working
-      `.pte` + tokenizer
+      `.pte` (needs licensed Llama weights — not obtained yet)
 - [ ] App installs and runs on a physical Arm64 Android device with
       `i8mm` support
 - [ ] Benchmark run completes and `results/benchmark_log.csv` populates

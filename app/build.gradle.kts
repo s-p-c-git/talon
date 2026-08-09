@@ -39,10 +39,18 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 
-    // Built locally via `sh scripts/build_android_library.sh` in the
-    // executorch repo (see README Step 1), then copied here or referenced
-    // via a flat AAR repo. Not published to Maven Central as of this
-    // writing — check the executorch repo for the current recommended
-    // dependency method before building.
-    implementation(files("libs/executorch.aar"))
+    // ExecuTorch is now published to Maven Central — no source build
+    // required for the default XNNPACK/KleidiAI backend this demo uses.
+    // fbjni + nativeloader come in transitively via this artifact's POM.
+    // Verified 2026-08-09: version pinned to what the current
+    // meta-pytorch/executorch-examples LlamaDemo app.build.gradle.kts uses;
+    // check https://repo1.maven.org/maven2/org/pytorch/executorch-android/
+    // for newer releases before bumping.
+    implementation("org.pytorch:executorch-android:1.1.0")
+
+    // Only needed if you build a custom ExecuTorch AAR from source (e.g. to
+    // add a non-default backend like QNN or Vulkan) via
+    // `scripts/setup.sh --build-aar`. Uncomment and remove the Maven
+    // dependency above if you do.
+    // implementation(files("libs/executorch.aar"))
 }

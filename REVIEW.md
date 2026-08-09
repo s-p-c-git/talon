@@ -118,3 +118,122 @@ one section meant to catch problems before a judge does.
   diffing `MainActivity.kt` against the current
   `meta-pytorch/executorch-examples` `LlamaDemo` source before trusting
   any of its API calls.
+
+### 2026-08-09 — Repo made standalone on GitHub; API-drift audit and build scaffolding
+
+**What changed**
+- Pushed this project to its own public GitHub repo, `s-p-c-git/talon`,
+  preserving the existing 3-commit history and `v0.1.0-mvp-scaffold` tag
+  rather than re-committing (tag push itself hit a permission error on
+  the hosting side — branch pushed fine, tag needs to be created manually
+  via the GitHub UI pointing at the `Initial TALON scaffold...` commit).
+- Ran the "diff against current LlamaDemo source" audit flagged as open
+  in the previous entry, by cloning `pytorch/executorch` and
+  `meta-pytorch/executorch-examples` at their current `main` and reading
+  the actual `LlmModule.kt`/`LlmCallback.kt` source (not just call sites)
+  plus `examples/models/llama/README.md` and the `export_llm` config
+  presets. Found real, confirmed drift and fixed it:
+  - `org.pytorch.executorch.LlamaModule`/`LlamaCallback` no longer exist
+    under that package — renamed to
+    `org.pytorch.executorch.extension.llm.LlmModule`/`LlmCallback`.
+    `MainActivity.kt` updated.
+  - `LlmModule.load()` now returns `Unit` and throws
+    `ExecutorchRuntimeException` on failure, instead of returning an
+    Int status code. The old `if (loadResult == 0)` check was silently
+    wrong (`load()` doesn't return a value to compare) — fixed to a
+    try/catch.
+  - `LlmModule` now implements `Closeable`; `onDestroy()` only called
+    `stop()`, not `close()` — added the `close()` call.
+  - `LlmCallback` gained a third method, `onError(errorCode, message)`
+    (default no-op) — implemented it in `MainActivity.kt` instead of
+    leaving it to the default, since silently swallowing generation
+    errors would have made benchmark runs fail confusingly.
+  - The 3-arg `LlmModule(path, tokenizer, temperature)` constructor and
+    the 3-arg `generate(prompt, seqLen, callback)` overload TALON was
+    already using are **unchanged** — confirmed directly against
+    `LlmModule.kt`'s source, not inferred from a caller.
+  - ExecuTorch now publishes `org.pytorch:executorch-android` to Maven
+    Central (confirmed via the artifact's POM, version 1.1.0 pinned to
+    match what the current reference LlamaDemo app depends on; fbjni
+    and nativeloader come in transitively). This means the manual
+    `sh scripts/build_android_library.sh` AAR-from-source step the
+    README and `scripts/setup.sh` treated as mandatory Step 1 is no
+    longer required for this project's default XNNPACK/KleidiAI
+    config — `app/build.gradle.kts` now depends on the Maven artifact
+    directly. `scripts/setup.sh` keeps the source-build path behind an
+    opt-in `--build-aar` flag for anyone adding a non-default backend
+    (QNN, Vulkan).
+  - `scripts/export_model.py`'s export CLI was invoking a module path
+    (`examples.models.llama.export_llama`) and flat flags
+    (`-qmode`, `-group_size`, `-embedding-quantize`) that no longer
+    exist. Current ExecuTorch uses `extension.llm.export.export_llm`
+    with a `--config <preset.yaml>` plus dotted Hydra-style overrides.
+    Rewrote the script against `examples/models/llama/config/llama_xnnpack.yaml`
+    (confirmed this preset already bundles KV cache + SDPA + XNNPACK
+    extended ops + 8da4w quantization — matches what TALON's flags were
+    trying to express) with explicit `quantization.*` overrides layered
+    on top so the "4bit-groupwise" intent stays visible in this repo
+    rather than hidden inside the executorch checkout.
+- Added the Gradle project scaffolding that was missing from the
+  original scaffold: root `settings.gradle.kts`, root `build.gradle.kts`
+  (AGP 8.6.0 / Kotlin 1.9.24, chosen for compatibility with the pinned
+  Gradle version and `compileSdk 34`), `gradle.properties`, and a
+  generated Gradle 8.9 wrapper (`gradlew`/`gradlew.bat`/`gradle/wrapper/`).
+  Without these, `./gradlew :app:installDebug` as written in the README
+  had nothing to run — there was no root project.
+- Updated `README.md` (Setup steps 1-2, prerequisites) and
+  `SUBMISSION_CHECKLIST.md`'s build-and-verify section to match all of
+  the above.
+
+**Decisions made this session**
+- Keep the ExecuTorch AAR-from-source path in `scripts/setup.sh` as an
+  opt-in flag rather than deleting it — it's still the right path for
+  anyone adding a backend not in the published Maven artifact, and
+  deleting it would lose real, previously-checked-in knowledge for a
+  narrow simplification win.
+- Pin `executorch-android` to `1.1.0` (matching the version actually
+  verified against the `LlmModule`/`LlmCallback` source this session),
+  not the latest Maven release (`1.4.0` as of this check) — staying
+  consistent with what was actually diffed rather than assuming a newer
+  version's `@Experimental` API is identical. Bumping the version is a
+  "diff again first" task, not a "trust and bump" one.
+
+**Deviations from CLAUDE.md constraints or the standing plan**
+- None. Repo stays standalone (only touched files already in this repo);
+  no SDLC/governance-tooling artifacts added; commits will carry the
+  repo owner's configured git identity, not a tool's.
+
+**Open questions / blockers**
+- This audit was done in a sandboxed cloud session with **no Android
+  SDK, no NDK, and no network access to `dl.google.com`** (Google's
+  Maven/SDK-manager host — confirmed via direct 403s through the
+  session's proxy; `repo1.maven.org` and `services.gradle.org` both
+  work fine). Concretely, `./gradlew help` gets through settings/root
+  build evaluation and the Gradle wrapper download cleanly, then fails
+  exactly at resolving the Android Gradle Plugin from `google()`. That
+  means **none of this session's fixes were compiled or run** — they're
+  verified by reading the actual current library source
+  (`LlmModule.kt`, `LlmCallback.kt`, `export_llm`'s config presets)
+  line-by-line against every call site changed, not by a green build.
+  A real environment with normal network access should get much
+  further; run `./gradlew :app:assembleDebug` there as the first real
+  compile check.
+- Git tag `v0.1.0-mvp-scaffold` still needs to be created manually on
+  `s-p-c-git/talon` (pointing at the `Initial TALON scaffold...` commit)
+  — the automated push got a 403 specifically on tag-ref creation while
+  the branch push succeeded.
+- Model weights, a physical Arm64 device, and the KleidiAI-on/off
+  benchmark comparison are all still unobtained/undone — unchanged from
+  the previous entry, and none of them were possible in this sandbox
+  either.
+
+**Checklist state**
+- Build-and-verify: added a checked-off "source-level API audit" line;
+  everything requiring an actual compile, a device, or model weights is
+  still open (see `SUBMISSION_CHECKLIST.md`).
+
+**Next session should start with**
+- Running `./gradlew :app:assembleDebug` in an environment with a real
+  Android SDK and normal network access — this is the first actual
+  compile of this session's fixes, and should surface anything the
+  source-reading audit missed.

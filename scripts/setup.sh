@@ -1,27 +1,48 @@
 #!/usr/bin/env bash
-# Sets up the ExecuTorch build environment and pulls the reference
-# LlamaDemo app used as this project's base. Mirrors:
-# https://learn.arm.com/learning-paths/mobile-graphics-and-gaming/build-llama3-chat-android-app-using-executorch-and-xnnpack/
+# Clones the ExecuTorch checkout scripts/export_model.py needs, and
+# (optionally) builds a custom ExecuTorch Android AAR from source.
+#
+# As of ExecuTorch 1.1.0, org.pytorch:executorch-android is published to
+# Maven Central with XNNPACK + KleidiAI enabled by default — app/build.gradle.kts
+# depends on it directly, so building the AAR from source is NOT required
+# for this project's default configuration. Only run this script with
+# --build-aar if you need a non-default backend (e.g. QNN, Vulkan) that
+# isn't in the published artifact.
+#
+# Verified 2026-08-09 against pytorch/executorch main and the current
+# meta-pytorch/executorch-examples LlamaDemo app.build.gradle.kts.
 set -euo pipefail
 
-: "${ANDROID_HOME:?Set ANDROID_HOME before running this script}"
+BUILD_AAR=false
+for arg in "$@"; do
+  case "$arg" in
+    --build-aar) BUILD_AAR=true ;;
+    *) echo "Unknown argument: $arg" >&2; exit 1 ;;
+  esac
+done
 
-echo "==> Cloning ExecuTorch"
+echo "==> Cloning ExecuTorch (needed for scripts/export_model.py)"
 if [ ! -d "executorch" ]; then
   git clone https://github.com/pytorch/executorch.git
 fi
-cd executorch
 
-export ANDROID_NDK="${ANDROID_HOME}/ndk/29.0.14206865/"
-export ANDROID_ABI=arm64-v8a
-export ANDROID_SDK="${ANDROID_HOME}"
+if [ "$BUILD_AAR" = true ]; then
+  : "${ANDROID_HOME:?Set ANDROID_HOME before running with --build-aar}"
+  cd executorch
 
-echo "==> Building ExecuTorch Android AAR (KleidiAI enabled by default, ExecuTorch >=0.7)"
-sh scripts/build_android_library.sh
+  export ANDROID_NDK="${ANDROID_HOME}/ndk/29.0.14206865/"
+  export ANDROID_ABI=arm64-v8a
+  export ANDROID_SDK="${ANDROID_HOME}"
 
-cd ..
+  echo "==> Building ExecuTorch Android AAR from source (KleidiAI enabled by default, ExecuTorch >=0.7)"
+  sh scripts/build_android_library.sh
+  echo "==> AAR built. Copy it to app/libs/executorch.aar and switch"
+  echo "    app/build.gradle.kts back to the files(\"libs/executorch.aar\") dependency."
 
-echo "==> Cloning reference LlamaDemo app (base for this project's app/ module)"
+  cd ..
+fi
+
+echo "==> Cloning reference LlamaDemo app (kept as a live diff target for API drift)"
 if [ ! -d "executorch-examples" ]; then
   git clone https://github.com/meta-pytorch/executorch-examples.git
 fi
