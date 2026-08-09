@@ -1,0 +1,33 @@
+# Android
+*.iml
+.gradle/
+/local.properties
+.idea/
+.DS_Store
+build/
+captures/
+.externalNativeBuild/
+.cxx/
+app/libs/*.aar
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Model artifacts (large, and Llama weights are separately licensed —
+# never commit them)
+*.pte
+tokenizer.bin
+executorch/
+executorch-examples/
+checkpoints/
+
+# Internal dev-process artifacts (SDLC/governance tooling used to build
+# this repo, if any) — never intended for the public submission. See
+# SUBMISSION_CHECKLIST.md "Before making the repo public" section.
+.vishwakarma/
+*ADR*.md
+*adr*.md
+*CDR*.md
+*cdr*.md

@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "TALON — Torch-based ARm LLM On-device Node"
+version: 0.1.0-mvp
+date-released: 2026-08-09
+authors:
+  - family-names: Chakravarthy
+    given-names: Sadagopan
+    orcid: "https://orcid.org/0009-0004-6166-9864"
+repository-code: "https://github.com/s-p-c-git/talon"
+license: Apache-2.0
+keywords:
+  - on-device-inference
+  - executorch
+  - kleidiai
+  - arm
+  - mobile-ai

@@ -1,0 +1,4 @@
+# Installed on top of the executorch repo's own requirements
+# (see executorch/requirements.txt after running scripts/setup.sh).
+# This file only lists what this project's own scripts need directly.
+torch>=2.4

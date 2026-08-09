@@ -1,0 +1,1 @@
+timestamp,prompt_id,ttft_ms,tokens,decode_ms,tokens_per_sec,peak_rss_mb,model_size_mb

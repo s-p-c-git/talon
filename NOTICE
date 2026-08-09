@@ -1,0 +1,14 @@
+TALON — Torch-based ARm LLM On-device Node
+Copyright 2026 Sadagopan Chakravarthy
+
+This product includes software developed by Sadagopan Chakravarthy
+(https://orcid.org/0009-0004-6166-9864).
+
+This repository is a scoped demonstration submitted to the Arm Create:
+AI Optimization Challenge 2026 (Track 3: Mobile AI). It builds on top of
+ExecuTorch (PyTorch Edge), which is separately licensed — see
+https://github.com/pytorch/executorch for its license terms.
+
+Per Section 4(d) of the Apache License 2.0, any redistribution of this
+work or derivative works must reproduce this NOTICE file's attribution
+statement.
