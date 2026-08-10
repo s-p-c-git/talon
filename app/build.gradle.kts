@@ -13,8 +13,15 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "0.1.0-mvp"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk {
-            abiFilters += "arm64-v8a" // Arm-only, matches the challenge's target hardware
+            // Arm-only by default, matching the challenge's target hardware —
+            // override with -PabiFilters=x86_64 (comma-separated) for a CI-only
+            // build that runs on the x86_64 Android emulator GH-hosted runners
+            // actually have (see .github/workflows/build.yml's
+            // emulator-smoke-test job). Never override this for a real build.
+            val abis = (project.findProperty("abiFilters") as String? ?: "arm64-v8a").split(",")
+            abiFilters.addAll(abis)
         }
     }
 
@@ -61,4 +68,12 @@ dependencies {
     // `scripts/setup.sh --build-aar`. Uncomment and remove the Maven
     // dependency above if you do.
     // implementation(files("libs/executorch.aar"))
+
+    // CI-only: drives app/src/androidTest/.../SmokeTest.kt (real emulator
+    // install + model load + generate, see build.yml's emulator-smoke-test
+    // job). Not Espresso -- ActivityScenario + direct view access is enough
+    // for this app's two plain-click buttons, so no view-matcher dependency.
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test:core:1.6.1")
 }
