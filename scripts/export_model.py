@@ -66,9 +66,14 @@ FAMILY_PRESETS = {
     "qwen2_5": {
         # Preset already sets qmode=8da4w; layer on group_size to match
         # this project's "4bit-groupwise" intent (preset leaves it unset).
+        # Unlike llama_xnnpack.yaml, this preset's quantization: block
+        # doesn't define group_size at all, so it needs Hydra's add
+        # syntax (+) rather than the plain override syntax the llama
+        # preset's already-present keys use. Confirmed via CI failure
+        # 2026-08-10 -- see REVIEW.md.
         "config": "examples/models/qwen2_5/config/qwen2_5_xnnpack_q8da4w.yaml",
         "overrides": [
-            "quantization.group_size=128",
+            "+quantization.group_size=128",
         ],
     },
 }
