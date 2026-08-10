@@ -10,8 +10,10 @@ Deadline: **Aug 14, 2026 @ 4:00pm PDT**
 
 ## Devpost required fields
 
-- [ ] Repository URL — public, Apache 2.0 license file detectable in
-      the repo's "About" section on GitHub
+- [x] Repository URL — public, Apache 2.0 license file detectable in
+      the repo's "About" section on GitHub. `v0.1.0-mvp-scaffold` tag
+      and a published "Initial scaffold" release both exist, pinned to
+      the original scaffold commit.
 - [ ] Project Overview — pull from `README.md` intro
 - [ ] Functionality / Output — the ExecuTorch + KleidiAI inference path,
       MemoryBridge stub, benchmark harness and its CSV output
@@ -30,13 +32,26 @@ Deadline: **Aug 14, 2026 @ 4:00pm PDT**
       (2026-08-09, sandboxed session with no Android SDK/device — see
       `REVIEW.md` entry for what was and wasn't possible to verify this
       way). Found and fixed real drift; see that entry for details.
-- [ ] `./gradlew :app:assembleDebug` actually run to completion — not yet;
-      needs a real Android SDK (compileSdk 34) and network access to
-      Google's Maven repo, neither available in the sandbox this was
-      audited in
-- [ ] `scripts/setup.sh` runs clean on a fresh checkout
+- [x] `./gradlew :app:assembleDebug` actually run to completion — green
+      via GitHub Actions CI (`.github/workflows/build.yml`, first
+      genuinely successful run 2026-08-10; the dev sandbox itself still
+      can't reach Google's Maven repo, so CI is how this gets verified
+      going forward, not a one-off workaround). Caught and fixed a real
+      defect on the first attempt: `executorch-android:1.1.0` didn't
+      actually have `LlmCallback.onError()`/`Closeable.close()` despite
+      GitHub main-branch source suggesting it did — bumped to `1.4.0`.
+      See `REVIEW.md`.
+- [x] `scripts/setup.sh` runs clean on a fresh checkout — verified
+      2026-08-10 (default path, no `--build-aar`)
 - [ ] Model export via `scripts/export_model.py` produces a working
-      `.pte` (needs licensed Llama weights — not obtained yet)
+      `.pte` (needs licensed Llama weights — not obtained yet). A
+      pre-exported, confirmed-ungated alternative
+      (`pytorch/Qwen3-4B-INT8-INT4` on Hugging Face, verified reachable
+      without auth via CI 2026-08-10) is available as a fallback for
+      validating the app end-to-end if the Llama license isn't resolved
+      in time — see `REVIEW.md`. Swapping models needs zero code changes
+      (`LlmModule` only takes file paths), just re-running the benchmark
+      on whichever model actually ships.
 - [ ] App installs and runs on a physical Arm64 Android device with
       `i8mm` support
 - [ ] Benchmark run completes and `results/benchmark_log.csv` populates
@@ -62,15 +77,19 @@ process artifacts), none of that should appear in the public repo or
 submission text — only the working code, docs, and results described
 above.
 
-- [ ] Search the working tree for any process-tooling artifacts before
+- [x] Search the working tree for any process-tooling artifacts before
       the first public push: `grep -ril "vishwakarma\|adr\|cdr" .`
       (`.gitignore` already excludes `.vishwakarma/` and `*ADR*`/`*CDR*`
       files going forward, but that only stops new files — it doesn't
-      retroactively clean anything already committed)
-- [ ] Check commit author name/email and commit message text — if
-      commits were made through an agent/tool with its own identity or
-      naming conventions, squash or rewrite history before the repo goes
-      public so authorship reads as your own, not a tool's
+      retroactively clean anything already committed). Verified clean —
+      no matches beyond this file's own policy text.
+- [x] Check commit author name/email and commit message text — an
+      agent-tool identity (`Claude <noreply@anthropic.com>`) leaked into
+      commit authorship twice this session (local git config reverting
+      unexpectedly between working-directory setups); caught both times
+      via this exact check, amended, and force-pushed before the repo's
+      history moved further. Worth re-running this check before every
+      future push, not just once — it's not a one-time state.
 - [ ] Do a final `git log --all --oneline` skim right before making the
       repo public, since this is the one check that can't be automated
       away by .gitignore

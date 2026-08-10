@@ -237,3 +237,107 @@ one section meant to catch problems before a judge does.
   Android SDK and normal network access — this is the first actual
   compile of this session's fixes, and should surface anything the
   source-reading audit missed.
+
+### 2026-08-10 — First real green `assembleDebug`, via CI; source-audit gap found and fixed
+
+**What changed**
+- Added `.github/workflows/build.yml`: a real `./gradlew :app:assembleDebug`
+  job (JDK 17, `android-actions/setup-android`, `compileSdk 34` +
+  build-tools) plus a separate job checking whether
+  `pytorch/Qwen3-4B-INT8-INT4`'s pre-exported `.pte` on Hugging Face is
+  reachable without auth. GitHub Actions runners have normal network
+  access — this sandbox still can't reach `dl.google.com` (re-confirmed
+  again this session) or `huggingface.co` at all, so CI is now the actual
+  verification path for both, not a one-off workaround.
+- **First CI run failed the build — for real, not from a network wall.**
+  Compiler errors: `MainActivity.kt:101:21 'onError' overrides nothing`
+  and `MainActivity.kt:136:19 Unresolved reference: close`. Root cause:
+  the previous session's source-level audit read
+  `LlmCallback.onError()`/`LlmModule`'s `Closeable`/`close()` off
+  pytorch/executorch's **GitHub main branch**, then pinned the dependency
+  to `1.1.0` because that's what the reference app's build file (also
+  read from GitHub main) happened to use. Main-branch source and a
+  specific *released* artifact are not the same thing — those two
+  members were added to the library after `1.1.0` shipped. No amount of
+  reading GitHub source catches that; only compiling against the actual
+  binary does. This is exactly the failure mode CI was added to catch,
+  and it caught it on the very first run.
+- Fix: bumped `executorch-android` to `1.4.0` (latest published release,
+  per Maven metadata checked last session). Second CI run:
+  **`Build debug APK` succeeded, APK artifact uploaded.** First genuinely
+  green, compiler-verified build this project has ever had.
+- Qwen3 reachability check: passed — `pytorch/Qwen3-4B-INT8-INT4`'s
+  `.pte` returns 200 unauthenticated. Confirmed as a real fallback path
+  for validating the app end-to-end (build, install, load, generate) if
+  Meta's Llama license isn't resolved before the deadline. `LlmModule`
+  only takes file paths, so swapping models later needs zero code
+  changes — just different files on-device and a re-run of the benchmark
+  on whichever model actually ships.
+- `v0.1.0-mvp-scaffold` git tag and an "Initial scaffold" GitHub release
+  now exist on `s-p-c-git/talon`, pinned to the original scaffold commit
+  — created manually (the automated tag push kept 403ing on tag-ref
+  creation specifically, branch pushes were always fine). Verified via
+  the GitHub API, not just taken on report.
+- Updated `SUBMISSION_CHECKLIST.md`: checked off repo URL/tag, real
+  `assembleDebug`, `scripts/setup.sh` verified-clean, and the two
+  pre-public-push governance-artifact checks (both actually re-run this
+  session, not just assumed still valid).
+
+**Decisions made this session**
+- Bump `executorch-android` to whatever the actual latest released
+  version is (`1.4.0`) rather than trying to pin to some specific
+  "known-good" version by reading source again — a real compile is the
+  only thing that can confirm a pinned version's actual API surface, and
+  CI now gives a fast, cheap way to re-check that on every push. Treat
+  future version bumps the same way: bump, let CI compile it, don't
+  assume from source reading alone.
+- Ship the Qwen3 fallback as a *documented option*, not a silent
+  replacement for Llama — the challenge's actual model requirements are
+  still unconfirmed (rules page unreachable from the dev sandbox), so
+  the checklist notes it as a validation/fallback path, not a decision
+  to switch away from Llama.
+
+**Deviations from CLAUDE.md constraints or the standing plan**
+- **Real, twice-repeated deviation, not a "none":** this session's git
+  identity in `/workspace/talon` reverted to `Claude <noreply@anthropic.com>`
+  on its own between working-directory setups — not something done
+  deliberately — and it happened *twice*, producing two commits with the
+  wrong author before being caught. Both times: caught by explicitly
+  checking `git config user.name`/`user.email` before trusting a commit,
+  confirmed with the user, fixed via `commit --amend` +
+  `push --force-with-lease`, and verified against `origin/main` (not just
+  the local ref) afterward. Root cause of the reversion itself wasn't
+  tracked down — worth treating `git remote -v` **and**
+  `git config user.name`/`user.email` as a check before *every* commit
+  in this repo, every session, not a one-time setup step. No governance
+  file from any other source ever touched this repo.
+
+**Open questions / blockers**
+- Model weights, a physical Arm64 device, and the KleidiAI-on/off
+  benchmark comparison are still unobtained/undone.
+- The competition's actual rules page
+  (`arm-ai-optimization-challenge.devpost.com`) is unreachable from this
+  sandbox (network egress policy blocks the whole domain) — whether the
+  submission needs to be Llama specifically is still unconfirmed from a
+  primary source; what's known is inferred from search-engine snippets
+  only.
+- Root cause of the recurring git-identity reversion in
+  `/workspace/talon` was never actually diagnosed — it was caught and
+  fixed reactively twice, not prevented.
+
+**Checklist state**
+- `SUBMISSION_CHECKLIST.md`: repository URL/tag, real `assembleDebug`,
+  `scripts/setup.sh`, and both pre-public-push governance checks moved
+  to done. Model export, device install, benchmark run, and the
+  KleidiAI comparison are still open — all genuinely blocked on external
+  resources (weights, hardware), not on anything fixable in software.
+
+**Next session should start with**
+- If Llama's license is still unresolved: pursue the Qwen3 fallback for
+  a real on-device validation (build already green; next step would be
+  an emulator or physical-device install using the Qwen3 `.pte`) so the
+  app's actual runtime behavior gets proven before the deadline even if
+  Llama itself is still pending.
+- Directly check `arm-ai-optimization-challenge.devpost.com/rules` from
+  an unrestricted environment to settle the model-requirement question
+  with a primary source instead of search snippets.
