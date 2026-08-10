@@ -92,14 +92,23 @@ def main():
     if not EXECUTORCH_DIR.exists():
         sys.exit(f"Expected an executorch checkout at {EXECUTORCH_DIR} — run scripts/setup.sh first.")
 
+    # The export subprocess below runs with cwd=EXECUTORCH_DIR, so any
+    # relative path from the caller (checkpoint/params/output-dir) must be
+    # resolved to absolute *before* that cwd switch, or it silently
+    # resolves against the wrong directory. Confirmed via CI failure
+    # 2026-08-10 (FileNotFoundError on the checkpoint) — see REVIEW.md.
+    checkpoint = Path(args.checkpoint).resolve()
+    params = Path(args.params).resolve()
+    output_dir = Path(args.output_dir).resolve()
+
     preset = FAMILY_PRESETS[args.family]
     cmd = [
         sys.executable, "-m", "extension.llm.export.export_llm",
         "--config", preset["config"],
         f"+base.model_class={args.model}",
-        f"+base.checkpoint={args.checkpoint}",
-        f"+base.params={args.params}",
-        f"+export.output_name={args.output_dir}/model.pte",
+        f"+base.checkpoint={checkpoint}",
+        f"+base.params={params}",
+        f"+export.output_name={output_dir}/model.pte",
         *preset["overrides"],
     ]
 
