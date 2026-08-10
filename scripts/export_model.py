@@ -94,7 +94,7 @@ def main():
         f"+base.model_class={args.model}",
         f"+base.checkpoint={args.checkpoint}",
         f"+base.params={args.params}",
-        f"export.output_name={args.output_dir}/model.pte",
+        f"+export.output_name={args.output_dir}/model.pte",
         *preset["overrides"],
     ]
 
