@@ -9,6 +9,16 @@ AI Optimization Challenge 2026 (Track 3: Mobile AI). It builds on top of
 ExecuTorch (PyTorch Edge), which is separately licensed — see
 https://github.com/pytorch/executorch for its license terms.
 
+CI (`.github/workflows/build.yml`'s `qwen-export-pilot` job) exports and
+distributes a quantized `.pte` build artifact derived from
+Qwen/Qwen2.5-0.5B-Instruct
+(https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct), licensed under the
+Apache License 2.0 per its model card (see the model card for full
+attribution). This NOTICE credits that model as the source of the
+distributed weights, per Section 4(d) of the Apache License 2.0 — the
+same obligation that applies to TALON's own code, not just to the
+vendored helper below.
+
 `scripts/convert_qwen_checkpoint.py` includes a small helper function
 (`get_mapped_key`) and a Qwen2.5 weight-key mapping adapted from
 pytorch/torchtune (torchtune/models/convert_weights.py) and

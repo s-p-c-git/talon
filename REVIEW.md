@@ -512,3 +512,63 @@ one section meant to catch problems before a judge does.
   the Qwen2.5-0.5B-Instruct Hugging Face model card from an unrestricted
   environment — both are still unverified claims this session had to
   proceed on pragmatically rather than confirm.
+
+### 2026-08-10 — Closed out the two open verification items; NOTICE gap fixed; corrected a stale claim
+
+**What changed**
+- A Claude-chat session (with normal web access) re-verified, from a
+  fresh browsing session, the two items the previous entry flagged as
+  unverified from this sandboxed environment: the rules page's
+  framework-based (not Llama-specific) Track 3 eligibility, and
+  Qwen2.5-0.5B-Instruct's license (Apache 2.0, per its HF model card and
+  LICENSE file — the `pytorch/Qwen3-4B-INT8-INT4` fallback too). Marked
+  both `[x]` in `SUBMISSION_CHECKLIST.md`, explicit about the
+  provenance: relayed from chat, not independently re-verified by this
+  Code session, since `huggingface.co` and the rules domain remain
+  blocked by this sandbox's network egress proxy.
+- Real gap the chat session caught, now fixed: `NOTICE` credited
+  ExecuTorch and the vendored `convert_qwen_checkpoint.py` helper, but
+  not Qwen2.5 itself as the source of the `.pte` model weights CI now
+  distributes (~440 MB via `qwen-export-pilot`'s artifact upload) — a
+  redistributed derivative of an Apache-2.0 model, which carries the
+  same NOTICE-carryforward obligation as TALON's own code. Added.
+
+**Decisions made this session**
+- Accept the chat session's re-verifications as sufficient to close
+  those two checklist items, given the established two-tier pattern
+  this project already uses (chat sessions have live web access this
+  sandbox doesn't; Code sessions verify via compilation/CI where
+  possible) — while keeping the provenance distinction explicit in the
+  checklist text rather than presenting chat-relayed claims as
+  Code-session-verified.
+
+**Deviations from CLAUDE.md constraints or the standing plan**
+- None.
+
+**Open questions / blockers**
+- Correcting the record on one claim in the chat's message: it
+  characterized the commit-author-identity issue as "still live, not
+  resolved." That's not accurate as of this session — the actual root
+  cause (`.git/config` never having a `[user]` section at all, not
+  "reverting") was found and documented in the previous entry, and this
+  session's mitigation (per-commit `git -c` scoping, verified every
+  commit) worked without a single leaked commit. What genuinely remains
+  open, and what the chat's underlying concern correctly points at: the
+  repo-level git config still isn't actually set, so the workaround is a
+  discipline that has to be repeated every commit, every session, rather
+  than a fix. Updated `SUBMISSION_CHECKLIST.md`'s wording to reflect
+  this accurately instead of the stale framing.
+- Same unresolved items as before: Llama weights, a physical Arm64
+  device, and the baseline-vs-KleidiAI benchmark comparison.
+
+**Checklist state**
+- Two items closed (Llama-not-required, Qwen license), one item added
+  and closed (NOTICE gap), one item's wording corrected (commit-identity
+  root cause). See `SUBMISSION_CHECKLIST.md`.
+
+**Next session should start with**
+- Same as the previous entry: verify caching pays off on a push that
+  only touches export logic; pursue on-device validation now that a real
+  `.pte` exists; consider whether to set local git identity for this
+  repo directly (open decision, not made unilaterally by any session so
+  far).

@@ -7,6 +7,30 @@ Deadline: **Aug 14, 2026 @ 4:00pm PDT**
 - [x] Open-source regardless of which rule actually governs Track 3 —
       not waiting on organizer clarification. Repo is public, Apache 2.0
       (`LICENSE` + `NOTICE`-file attribution).
+- [x] Track 3 Llama requirement: confirmed NOT required — eligibility is
+      framework-based (ExecuTorch/ONNX Runtime/LiteRT/MediaPipe/etc.),
+      never model-specific; Llama only appears in Arm's reference
+      Learning Paths, not eligibility or judging criteria. Verified
+      against the live rules page by a Claude-chat session with normal
+      web access, 2026-08-10 — **not independently re-verified from
+      this Code session**, since `huggingface.co` and the rules domain
+      are both blocked by this sandbox's network egress proxy
+      (confirmed via WebFetch `EGRESS_BLOCKED`, not just a `curl`
+      failure). Worth a direct check from an unrestricted environment
+      before treating this as fully closed.
+- [x] Qwen2.5-0.5B-Instruct license confirmed Apache 2.0 (HF model card
+      + LICENSE file); `pytorch/Qwen3-4B-INT8-INT4` fallback also
+      Apache 2.0 (per the Qwen team's own blog: only the 2.5-generation
+      3B/72B variants carry a different license, and Qwen3 dropped that
+      exception entirely). Same provenance caveat as above — relayed
+      from a Claude-chat session, not independently re-verified here.
+- [x] `NOTICE` credits Qwen2.5 as the source of the distributed `.pte`
+      model weights (added 2026-08-10) — the `.pte` uploaded via
+      `qwen-export-pilot` CI artifacts (~440 MB) is a redistributed
+      derivative of an Apache-2.0-licensed model, and Apache 2.0's
+      NOTICE-carryforward obligation applies to it the same as it does
+      to TALON's own code, not just to the vendored
+      `convert_qwen_checkpoint.py` helper already credited there.
 
 ## Devpost required fields
 
@@ -93,13 +117,23 @@ above.
       files going forward, but that only stops new files — it doesn't
       retroactively clean anything already committed). Verified clean —
       no matches beyond this file's own policy text.
-- [x] Check commit author name/email and commit message text — an
-      agent-tool identity (`Claude <noreply@anthropic.com>`) leaked into
-      commit authorship twice this session (local git config reverting
-      unexpectedly between working-directory setups); caught both times
-      via this exact check, amended, and force-pushed before the repo's
-      history moved further. Worth re-running this check before every
-      future push, not just once — it's not a one-time state.
+- [x] Check commit author name/email and commit message text before
+      every push — not a one-time state. An agent-tool identity
+      (`Claude <noreply@anthropic.com>`) leaked into commit authorship
+      twice in an earlier session, caught reactively each time and
+      fixed via `commit --amend` + force-push. **Root cause found
+      2026-08-10** (previously just patched, not diagnosed): this
+      repo's local `.git/config` has never actually had a `[user]`
+      section — CLAUDE.md's assumption that identity is "already
+      configured locally" was never true — so it silently falls back to
+      this environment's global default every time unless every commit
+      is explicitly scoped (`git -c user.name=... -c user.email=...`).
+      That session used this scoping throughout, verified author +
+      committer after every commit, and never leaked a bad-author
+      commit — but the underlying repo config still isn't set, so the
+      workaround has to be repeated every commit, every session, until
+      the repo owner sets it directly (a call for them, not made
+      unilaterally here — see `REVIEW.md`).
 - [ ] Do a final `git log --all --oneline` skim right before making the
       repo public, since this is the one check that can't be automated
       away by .gitignore
