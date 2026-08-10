@@ -1,0 +1,51 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+jobs:
+  assemble:
+    name: assembleDebug (real Android SDK, unlike the sandboxed dev session)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install compileSdk platform + build-tools
+        run: sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Build debug APK
+        run: ./gradlew :app:assembleDebug --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: talon-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+
+  check-qwen3-artifact:
+    name: Check pytorch/Qwen3-4B-INT8-INT4 .pte reachability (ungated?)
+    runs-on: ubuntu-latest
+    steps:
+      - name: HEAD request against the pre-exported Qwen3 .pte
+        run: |
+          url="https://huggingface.co/pytorch/Qwen3-4B-INT8-INT4/resolve/main/model.pte"
+          code=$(curl -sS -o /dev/null -w "%{http_code}" -L -I "$url")
+          echo "HTTP status for $url: $code"
+          if [ "$code" = "200" ]; then
+            echo "Reachable without auth — looks ungated."
+          else
+            echo "Not reachable without auth (status $code) — likely gated or the path is wrong."
+            exit 1
+          fi
