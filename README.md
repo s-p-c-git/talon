@@ -30,7 +30,11 @@ boundary.
 
 ## What it demonstrates
 
-- Loading a quantized Llama model with ExecuTorch's `LlamaModule`
+- Loading a quantized on-device LLM with ExecuTorch's `LlmModule` — piloted
+  with Qwen2.5 (ungated on Hugging Face, no license-acceptance wait; see
+  Setup step 2), with Llama supported as a drop-in swap once its license
+  is accepted. `LlmModule` only takes file paths, so switching models
+  needs zero app-code changes.
 - Arm-specific acceleration via XNNPACK with KleidiAI kernels
   (`-DEXECUTORCH_XNNPACK_ENABLE_KLEIDI=ON`, default since ExecuTorch 0.7)
 - A benchmark harness measuring time-to-first-token, tokens/sec, and peak
@@ -76,17 +80,36 @@ backend, like QNN or Vulkan, that isn't in the published artifact.
 
 ### 2. Export and quantize the model
 
+This project's pilot model is **Qwen2.5-0.5B-Instruct** — ungated on
+Hugging Face (no Meta-license approval wait) and, per its model card,
+Apache-2.0 licensed (confirm on the card before you rely on this). Llama
+is fully supported too — see the `--family llama` branch below — but
+requires accepting Meta's license first.
+
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r scripts/requirements.txt
-python3 scripts/export_model.py --model llama3_2 --checkpoint <path/to/consolidated.00.pth> --params <path/to/params.json> --quant 4bit-groupwise
+
+# Qwen2.5 pilot (no license wait):
+huggingface-cli download Qwen/Qwen2.5-0.5B-Instruct --local-dir qwen2.5-0.5b-hf
+python3 executorch/examples/models/qwen2_5/convert_weights.py qwen2.5-0.5b-hf qwen2.5-0.5b-meta.pth
+python3 scripts/export_model.py --family qwen2_5 --model qwen2_5_0_5b \
+  --checkpoint qwen2.5-0.5b-meta.pth \
+  --params executorch/examples/models/qwen2_5/config/0_5b_config.json \
+  --quant 4bit-groupwise
+
+# Llama (once you've accepted Meta's license and downloaded weights):
+python3 scripts/export_model.py --family llama --model llama3_2 \
+  --checkpoint <path/to/consolidated.00.pth> --params <path/to/params.json> \
+  --quant 4bit-groupwise
 ```
 
 This produces `model.pte` — see `scripts/export_model.py` for the exact
-quantization args used (4-bit groupwise PTQ via ExecuTorch's
-`llama_xnnpack.yaml` config preset, matching the challenge's "Model size"
-and "Model speed" optimization categories). Copy the model's `tokenizer.model`
-alongside it as `tokenizer.bin` before the next step.
+quantization args used (4-bit groupwise PTQ via ExecuTorch's per-family
+config presets, matching the challenge's "Model size" and "Model speed"
+optimization categories). Copy the model's tokenizer files alongside it
+(`tokenizer.json`/`tokenizer_config.json` for Qwen2.5, `tokenizer.model`
+renamed to `tokenizer.bin` for Llama) before the next step.
 
 ### 3. Push model artifacts to device
 

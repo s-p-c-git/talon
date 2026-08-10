@@ -44,14 +44,23 @@ Deadline: **Aug 14, 2026 @ 4:00pm PDT**
 - [x] `scripts/setup.sh` runs clean on a fresh checkout — verified
       2026-08-10 (default path, no `--build-aar`)
 - [ ] Model export via `scripts/export_model.py` produces a working
-      `.pte` (needs licensed Llama weights — not obtained yet). A
-      pre-exported, confirmed-ungated alternative
-      (`pytorch/Qwen3-4B-INT8-INT4` on Hugging Face, verified reachable
-      without auth via CI 2026-08-10) is available as a fallback for
-      validating the app end-to-end if the Llama license isn't resolved
-      in time — see `REVIEW.md`. Swapping models needs zero code changes
-      (`LlmModule` only takes file paths), just re-running the benchmark
-      on whichever model actually ships.
+      `.pte`. Pilot model switched to **Qwen2.5-0.5B-Instruct**
+      (2026-08-10 decision — see `REVIEW.md`): ungated on Hugging Face,
+      no Meta-license wait, and Track 3's eligibility criteria are
+      framework-based (ExecuTorch/ONNX Runtime/LiteRT/MediaPipe/etc.),
+      not tied to a specific model family — per research relayed into
+      this session but **not yet independently re-verified from this
+      environment**, since the rules domain is blocked by this sandbox's
+      network egress policy same as `huggingface.co`. `scripts/export_model.py
+      --family qwen2_5` implements the export; `.github/workflows/build.yml`'s
+      `qwen-export-pilot` job is the real end-to-end verification (CI has
+      network access this sandbox doesn't) — check its latest run before
+      trusting this line. Llama remains fully supported
+      (`--family llama`) once its license is accepted; swapping models
+      needs zero app-code changes (`LlmModule` only takes file paths).
+      `pytorch/Qwen3-4B-INT8-INT4`'s pre-exported `.pte` (confirmed
+      reachable via CI 2026-08-10) remains available as a second,
+      already-exported fallback.
 - [ ] App installs and runs on a physical Arm64 Android device with
       `i8mm` support
 - [ ] Benchmark run completes and `results/benchmark_log.csv` populates

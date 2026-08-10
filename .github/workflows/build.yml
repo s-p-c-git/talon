@@ -34,6 +34,51 @@ jobs:
           name: talon-debug-apk
           path: app/build/outputs/apk/debug/*.apk
 
+  qwen-export-pilot:
+    name: Export Qwen2.5-0.5B-Instruct .pte end-to-end (real pilot, not just a reachability check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Clone ExecuTorch checkout
+        run: git clone --depth 1 https://github.com/pytorch/executorch.git
+
+      - name: Install ExecuTorch (dev/source path — required for extension.llm.export.export_llm and examples/)
+        working-directory: executorch
+        run: |
+          python -m pip install --upgrade pip
+          ./install_requirements.sh
+
+      - name: Install this project's + export-only deps
+        run: pip install -r scripts/requirements.txt huggingface_hub safetensors torchtune
+
+      - name: Download Qwen2.5-0.5B-Instruct checkpoint
+        run: huggingface-cli download Qwen/Qwen2.5-0.5B-Instruct --local-dir qwen2.5-0.5b-hf
+
+      - name: Convert HF checkpoint to Meta format
+        run: python3 executorch/examples/models/qwen2_5/convert_weights.py qwen2.5-0.5b-hf qwen2.5-0.5b-meta.pth
+
+      - name: Export + quantize .pte
+        run: |
+          python3 scripts/export_model.py --family qwen2_5 --model qwen2_5_0_5b \
+            --checkpoint qwen2.5-0.5b-meta.pth \
+            --params executorch/examples/models/qwen2_5/config/0_5b_config.json \
+            --quant 4bit-groupwise --output-dir .
+
+      - name: Report artifact
+        run: ls -lh model.pte
+
+      - name: Upload .pte
+        uses: actions/upload-artifact@v4
+        with:
+          name: qwen2.5-0.5b-instruct-pte
+          path: model.pte
+
   check-qwen3-artifact:
     name: Check pytorch/Qwen3-4B-INT8-INT4 .pte reachability (ungated?)
     runs-on: ubuntu-latest

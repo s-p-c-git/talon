@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Exports and quantizes a Llama model for ExecuTorch + XNNPACK + KleidiAI.
+Exports and quantizes an LLM (Llama or Qwen2.5) for ExecuTorch + XNNPACK +
+KleidiAI.
 
 This is a thin wrapper around ExecuTorch's own `export_llm` entry point.
 Run `scripts/setup.sh` first so the `executorch` checkout this script
@@ -9,24 +10,32 @@ expects is present as a sibling directory.
 Reference:
 https://learn.arm.com/learning-paths/mobile-graphics-and-gaming/build-llama3-chat-android-app-using-executorch-and-xnnpack/4-prepare-llama-models/
 https://github.com/pytorch/executorch/blob/main/examples/models/llama/README.md
+https://github.com/pytorch/executorch/blob/main/examples/models/qwen2_5/README.md
 
-NOTE: You must obtain model weights directly from Meta's Llama downloads
-page (or another source you're licensed to use) — this script does not
-download or bundle any model weights.
+NOTE ON MODEL WEIGHTS
+----------------------
+Llama (--family llama): obtain weights directly from Meta's Llama
+downloads page (or another source you're licensed to use) — this script
+does not download or bundle any model weights.
+
+Qwen2.5 (--family qwen2_5): the pilot path for this project, since the
+0.5B/1.5B checkpoints are ungated on Hugging Face and (per their model
+cards — confirm before relying on this) Apache-2.0 licensed, so there's
+no manual license-acceptance wait. Two steps before this script can run:
+  huggingface-cli download Qwen/Qwen2.5-0.5B-Instruct --local-dir <dir>
+  python executorch/examples/models/qwen2_5/convert_weights.py <dir> <out.pth>
+`<out.pth>` is then this script's --checkpoint.
 
 NOTE ON EXECUTORCH CLI SURFACE
 -------------------------------
-Verified 2026-08-09 against the current pytorch/executorch main branch.
-The export entry point moved from `examples.models.llama.export_llama`
-with flat `-qmode`/`-group_size`/`-embedding-quantize` CLI flags to
-`extension.llm.export.export_llm`, which takes a `--config <yaml>` preset
-plus dotted-key overrides (Hydra/OmegaConf style: `+base.checkpoint=...`,
-`quantization.group_size=...`). `examples/models/llama/config/llama_xnnpack.yaml`
-is the current preset matching this project's intent (KV cache + SDPA +
-XNNPACK with extended ops + 8da4w quantization, group_size 128, embedding
-quantize 4,32) — re-check that config file before relying on the presets
-below if you've re-run `scripts/setup.sh` against a newer executorch
-checkout, since these are `@Experimental`-adjacent and can change.
+Verified 2026-08-10 against the current pytorch/executorch main branch
+(config presets and READMEs, not a compiled run from this repo's sandbox
+— see REVIEW.md for what CI still needs to confirm). The export entry
+point is `extension.llm.export.export_llm`, taking a `--config <yaml>`
+preset plus dotted-key overrides (Hydra/OmegaConf style:
+`+base.checkpoint=...`, `quantization.group_size=...`). Qwen2.5 reuses
+Llama's example code — same entry point, different model_class/params/
+config preset — per `examples/models/qwen2_5/README.md`.
 """
 import argparse
 import subprocess
@@ -35,12 +44,12 @@ from pathlib import Path
 
 EXECUTORCH_DIR = Path(__file__).resolve().parent.parent / "executorch"
 
-# Dotted-key overrides layered on top of each config preset's own
-# quantization.* defaults. Kept explicit here (rather than relying solely
-# on the preset file) so the "4bit-groupwise" intent is visible in this
-# script rather than hidden inside the executorch checkout.
-QUANT_PRESETS = {
-    "4bit-groupwise": {
+# Dotted-key overrides layered on top of each family's config preset.
+# Kept explicit here (rather than relying solely on the preset file) so
+# the "4bit-groupwise" intent is visible in this script rather than
+# hidden inside the executorch checkout.
+FAMILY_PRESETS = {
+    "llama": {
         "config": "examples/models/llama/config/llama_xnnpack.yaml",
         "overrides": [
             "quantization.qmode=8da4w",
@@ -48,22 +57,31 @@ QUANT_PRESETS = {
             "quantization.embedding_quantize=4,32",
         ],
     },
+    "qwen2_5": {
+        # Preset already sets qmode=8da4w; layer on group_size to match
+        # this project's "4bit-groupwise" intent (preset leaves it unset).
+        "config": "examples/models/qwen2_5/config/qwen2_5_xnnpack_q8da4w.yaml",
+        "overrides": [
+            "quantization.group_size=128",
+        ],
+    },
 }
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--model", required=True, help="e.g. llama3_2 (passed as base.model_class)")
-    parser.add_argument("--checkpoint", required=True, help="Path to downloaded .pth/.safetensors weights")
+    parser.add_argument("--family", choices=FAMILY_PRESETS.keys(), default="qwen2_5")
+    parser.add_argument("--model", required=True, help="e.g. qwen2_5_0_5b or llama3_2 (passed as base.model_class)")
+    parser.add_argument("--checkpoint", required=True, help="Path to Meta-format .pth weights (see NOTE ON MODEL WEIGHTS)")
     parser.add_argument("--params", required=True, help="Path to the model's params.json")
-    parser.add_argument("--quant", choices=QUANT_PRESETS.keys(), default="4bit-groupwise")
+    parser.add_argument("--quant", choices=["4bit-groupwise"], default="4bit-groupwise")
     parser.add_argument("--output-dir", default=".", help="Where to write model.pte")
     args = parser.parse_args()
 
     if not EXECUTORCH_DIR.exists():
         sys.exit(f"Expected an executorch checkout at {EXECUTORCH_DIR} — run scripts/setup.sh first.")
 
-    preset = QUANT_PRESETS[args.quant]
+    preset = FAMILY_PRESETS[args.family]
     cmd = [
         sys.executable, "-m", "extension.llm.export.export_llm",
         "--config", preset["config"],
