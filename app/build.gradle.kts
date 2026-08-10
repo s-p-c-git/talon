@@ -42,11 +42,19 @@ dependencies {
     // ExecuTorch is now published to Maven Central — no source build
     // required for the default XNNPACK/KleidiAI backend this demo uses.
     // fbjni + nativeloader come in transitively via this artifact's POM.
-    // Verified 2026-08-09: version pinned to what the current
-    // meta-pytorch/executorch-examples LlamaDemo app.build.gradle.kts uses;
-    // check https://repo1.maven.org/maven2/org/pytorch/executorch-android/
-    // for newer releases before bumping.
-    implementation("org.pytorch:executorch-android:1.1.0")
+    //
+    // CI-verified 2026-08-10: pinning to 1.1.0 (what the reference app's
+    // build.gradle.kts on GitHub main happened to use) does NOT compile —
+    // `LlmCallback.onError()` and `LlmModule`'s `Closeable`/`close()` exist
+    // in the pytorch/executorch GitHub main branch source but aren't in
+    // the 1.1.0 *released* artifact; they were added in a later release.
+    // Main-branch source and a specific pinned release are not the same
+    // thing — reading GitHub source alone can't catch this, only
+    // compiling against the actual binary artifact does. Bumped to the
+    // latest published release; re-verify against
+    // https://repo1.maven.org/maven2/org/pytorch/executorch-android/
+    // before bumping further, and re-run CI, don't assume.
+    implementation("org.pytorch:executorch-android:1.4.0")
 
     // Only needed if you build a custom ExecuTorch AAR from source (e.g. to
     // add a non-default backend like QNN or Vulkan) via
