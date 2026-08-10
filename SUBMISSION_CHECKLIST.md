@@ -43,24 +43,25 @@ Deadline: **Aug 14, 2026 @ 4:00pm PDT**
       See `REVIEW.md`.
 - [x] `scripts/setup.sh` runs clean on a fresh checkout — verified
       2026-08-10 (default path, no `--build-aar`)
-- [ ] Model export via `scripts/export_model.py` produces a working
-      `.pte`. Pilot model switched to **Qwen2.5-0.5B-Instruct**
-      (2026-08-10 decision — see `REVIEW.md`): ungated on Hugging Face,
-      no Meta-license wait, and Track 3's eligibility criteria are
-      framework-based (ExecuTorch/ONNX Runtime/LiteRT/MediaPipe/etc.),
-      not tied to a specific model family — per research relayed into
-      this session but **not yet independently re-verified from this
-      environment**, since the rules domain is blocked by this sandbox's
-      network egress policy same as `huggingface.co`. `scripts/export_model.py
-      --family qwen2_5` implements the export; `.github/workflows/build.yml`'s
-      `qwen-export-pilot` job is the real end-to-end verification (CI has
-      network access this sandbox doesn't) — check its latest run before
-      trusting this line. Llama remains fully supported
-      (`--family llama`) once its license is accepted; swapping models
-      needs zero app-code changes (`LlmModule` only takes file paths).
-      `pytorch/Qwen3-4B-INT8-INT4`'s pre-exported `.pte` (confirmed
-      reachable via CI 2026-08-10) remains available as a second,
-      already-exported fallback.
+- [x] Model export via `scripts/export_model.py` produces a working
+      `.pte` — **real, CI-compiled success 2026-08-10** (run
+      `31394392855`, commit `a276286`), pilot model
+      **Qwen2.5-0.5B-Instruct** (`--family qwen2_5`), after 8 rounds of
+      real CI failures each fixed from actual error text/upstream source;
+      see the `REVIEW.md` entry for the full list. `.pte` artifact
+      uploaded (~440 MB zipped) via `.github/workflows/build.yml`'s
+      `qwen-export-pilot` job. Llama remains fully supported
+      (`--family llama`) once its license is accepted — untested in CI
+      so far since Qwen2.5 is the default; swapping models needs zero
+      app-code changes (`LlmModule` only takes file paths).
+      `pytorch/Qwen3-4B-INT8-INT4`'s pre-exported `.pte` remains
+      available as a second, already-exported fallback. **Still
+      unverified from this environment** (network egress blocks
+      `huggingface.co` and the rules domain): the framework-based (not
+      Llama-specific) Track 3 eligibility claim this model choice rests
+      on, and Qwen2.5-0.5B-Instruct's exact license per its HF model
+      card — confirm both from an unrestricted environment before
+      finalizing.
 - [ ] App installs and runs on a physical Arm64 Android device with
       `i8mm` support
 - [ ] Benchmark run completes and `results/benchmark_log.csv` populates

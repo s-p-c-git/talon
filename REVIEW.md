@@ -341,3 +341,174 @@ one section meant to catch problems before a judge does.
 - Directly check `arm-ai-optimization-challenge.devpost.com/rules` from
   an unrestricted environment to settle the model-requirement question
   with a primary source instead of search snippets.
+
+### 2026-08-10 — First real Qwen2.5-0.5B-Instruct `.pte` export, via 8 rounds of real CI failures
+
+**What changed**
+- Switched the pilot model to **Qwen2.5-0.5B-Instruct**. Trigger: a
+  Claude-chat session's research, relayed into this session, found that
+  Track 3's eligibility criteria are framework-based (ExecuTorch/ONNX
+  Runtime/LiteRT/MediaPipe/etc.), not tied to a specific model family —
+  Llama only appears in Arm's own "Learning paths" (resources, not
+  requirements). **This session could not independently re-verify that
+  claim**: both `huggingface.co` and the challenge's rules domain are
+  blocked by this sandbox's network egress proxy (confirmed via direct
+  `EGRESS_BLOCKED` errors from WebFetch, not just `curl` failures this
+  time). Proceeded pragmatically anyway given the low reversal cost
+  (`LlmModule` is file-path-only) and the deadline — but this claim is
+  relayed, not verified, and should be checked from an unrestricted
+  environment before final submission.
+- `scripts/export_model.py` generalized from Llama-only to
+  `--family {llama,qwen2_5}`, each with its own real ExecuTorch config
+  preset.
+- `scripts/convert_qwen_checkpoint.py` added: a vendored, self-contained
+  reimplementation of `executorch/examples/models/qwen2_5/convert_weights.py`
+  (attribution in `NOTICE`) that avoids a real dependency conflict (see
+  bugs below).
+- `.github/workflows/build.yml`'s `qwen-export-pilot` job went from "does
+  it reach huggingface.co" to a real, staged, cache-backed, pinned-commit
+  end-to-end export pipeline — install ExecuTorch → download checkpoint →
+  convert → export/quantize → upload `.pte`.
+- **First genuinely successful end-to-end Qwen2.5-0.5B-Instruct `.pte`
+  export**, run `31394392855`, job `93473605751`, commit `a276286`.
+  `.pte` artifact uploaded (`qwen2.5-0.5b-instruct-pte`, ~440 MB zipped).
+  This took **8 rounds of real CI failures**, each diagnosed from actual
+  error text/upstream source and fixed for real — not guessed, and not
+  claimed fixed without a subsequent green (or further-progressed) CI
+  run to prove it. In order:
+  1. Shallow `git clone` without `--recurse-submodules` left
+     `extension/llm/tokenizers` (a submodule `install_requirements.py`
+     pip-installs directly) empty → "not installable". Fixed in both the
+     CI clone step and `scripts/setup.sh` (same latent bug there).
+  2. `huggingface-cli` is deprecated and now hard-exits with status 1;
+     switched to `hf`.
+  3. `executorch`'s own `qwen2_5/convert_weights.py` imports the full
+     `torchtune` package for one helper function
+     (`get_mapped_key`), but `torchtune/__init__.py` eagerly loads a
+     multimodal-dataset submodule referencing
+     `torchao.dtypes.nf4tensor.NF4Tensor` — absent from the torchao
+     nightly ExecuTorch's own `install_requirements.py` pins. Fixed by
+     vendoring just `get_mapped_key` (verified against current
+     pytorch/torchtune source) and the Qwen2.5 weight-key mapping
+     (verified against pytorch/executorch source) into
+     `scripts/convert_qwen_checkpoint.py`, needing only
+     `torch`+`safetensors`.
+  4. `install_requirements.sh` only installs *dependencies* — never the
+     `executorch` package itself. Its `pyproject.toml` maps
+     `src/executorch/* -> *` via `package-dir`, a mapping setuptools only
+     applies on an actual `pip install`. Switched to
+     `install_executorch.py --minimal`, which does the same dependency
+     install plus the missing `pip install .` (skipping
+     torchvision/torchaudio, irrelevant for a text-only LLM export).
+  5. Hydra override syntax: `export.output_name=...` tried to *override*
+     an `export:` key that neither `llama_xnnpack.yaml` nor
+     `qwen2_5_xnnpack_q8da4w.yaml` define — needed `+export.output_name=`
+     (add) instead, same as the `base.*` overrides already used.
+  6. Same class, second instance: `quantization.group_size=128` also
+     needed `+` for the qwen2_5 preset specifically, since its
+     `quantization:` block only defines `qmode` (llama's config already
+     defines `group_size`, so that family's override correctly stays
+     plain — re-audited every override key in both presets against the
+     actual YAML content after this one, to rule out further instances
+     before pushing again).
+  7. `export_model.py` ran the export subprocess with
+     `cwd=EXECUTORCH_DIR`, but `--checkpoint`/`--params`/`--output-dir`
+     were passed straight through as relative paths from the *caller's*
+     cwd — silently resolving wrong once the subprocess `cd`'d into
+     `executorch/`. Fixed by resolving all three to absolute paths before
+     building the command.
+  8. (This round): everything above, run end-to-end, green.
+- Added staged, content-addressed CI caching (`actions/cache`, gated
+  behind `if: steps.cache-X.outputs.cache-hit != 'true'`) plus pinning
+  `EXECUTORCH_REF` to a fixed commit instead of floating on `main`, so a
+  future push that only touches `convert_qwen_checkpoint.py` or the
+  export step doesn't re-pay the ~17-20 min from-source ExecuTorch
+  install. **This is now confirmed working, not just designed**: this
+  run's cache-save steps (`Post Cache ExecuTorch install`, `Post Cache
+  Qwen2.5-0.5B-Instruct checkpoint`) both succeeded for the first time —
+  every prior run's cache-save had silently no-op'd (`skipped`
+  conclusion) because `actions/cache`'s save only fires when the whole
+  job succeeds; a job failing downstream of a successful cache-populating
+  step still discards that work. Worth verifying on the *next* push that
+  install+download are now skipped outright.
+- Updated `SUBMISSION_CHECKLIST.md`'s model-export line to reflect the
+  real successful export.
+
+**Decisions made this session**
+- Pilot with Qwen2.5-0.5B-Instruct pragmatically despite the
+  framework-based-eligibility claim being unverified from this
+  environment — the reversal cost is low (`LlmModule` is file-path-only)
+  and the deadline doesn't leave room to wait on an unrestricted
+  environment. Flagged, not silently assumed.
+- Treat every CI failure as the source of truth over any prior
+  source-reading, consistent with this project's established practice
+  (the executorch-android 1.1.0→1.4.0 lesson) — every fix in the list
+  above came from reading the actual error and, where needed, the actual
+  current upstream source (cloned directly, not assumed from memory),
+  never from guessing based on what "should" work.
+
+**Deviations from CLAUDE.md constraints or the standing plan**
+- `CLAUDE.md` constraint 3 assumes this repo's local git identity is
+  "already configured" — **this was never actually true**. This
+  session's `.git/config` had no `[user]` section at all, so it silently
+  fell back to this environment's global default
+  (`Claude <noreply@anthropic.com>`) every time. This is the real root
+  cause behind the "identity reverted" bug two prior sessions each caught
+  and patched reactively (`commit --amend` + force-push) without finding
+  why. This session did not touch git config (global or local) at all —
+  per the standing git-safety rule against editing config — and instead
+  scoped the correct identity to every single commit via
+  `git -c user.name="Sadagopan Chakravarthy" -c
+  user.email="s-p-c-git@users.noreply.github.com" commit ...`, verifying
+  both author and committer after every commit. Whether to actually set
+  local `user.name`/`user.email` for this repo (a one-time, repo-scoped,
+  non-global config change) is a decision for the repo owner, not
+  something this session made unilaterally.
+- Separately: this session's local checkout of `/home/user/talon` had its
+  `HEAD` go stale mid-session — it stayed pointed at an older commit
+  while `origin/main` was correctly two commits ahead, apparently from an
+  environment/session refresh unrelated to anything this session did.
+  Caught by checking `git log`/`git status` before a commit and finding
+  `HEAD` didn't match what had just been pushed; verified via
+  `git ls-remote` directly against GitHub (authoritative, bypassing any
+  local staleness) that nothing was actually lost, then fast-forwarded
+  (`git merge --ff-only origin/main`) rather than anything destructive.
+  Worth treating "does local HEAD match origin/main" as a check alongside
+  the existing remote/identity checks, every session, not assumed stable
+  within a session either.
+
+**Open questions / blockers**
+- The framework-based (not Llama-specific) Track 3 eligibility claim is
+  still unverified from this environment — verify directly from
+  `arm-ai-optimization-challenge.devpost.com/rules` in an unrestricted
+  environment before finalizing the submission's model choice framing.
+- Qwen2.5-0.5B-Instruct's exact license should be confirmed on its actual
+  Hugging Face model card (this session could not reach `huggingface.co`
+  to check) before the README's "Apache-2.0, per its model card" claim is
+  treated as verified rather than expected.
+- Model weights for Llama itself, a physical Arm64 device, and the
+  baseline-vs-KleidiAI benchmark comparison are all still
+  unobtained/undone.
+- Whether local `user.name`/`user.email` should actually be set for this
+  repo (see Deviations above) is unresolved — current workaround
+  (per-commit `-c` scoping) works but requires remembering to do it every
+  commit, every session.
+
+**Checklist state**
+- `SUBMISSION_CHECKLIST.md`: model export line updated to reflect the
+  real, CI-verified Qwen2.5-0.5B-Instruct `.pte` export. Device install,
+  benchmark run, and KleidiAI comparison remain open — genuinely blocked
+  on hardware, not software.
+
+**Next session should start with**
+- Verify the caching design actually pays off: push a change that only
+  touches `convert_qwen_checkpoint.py` or the export step and confirm
+  `qwen-export-pilot` skips the install+download steps via cache hit
+  rather than re-running them.
+- Pursue on-device validation (emulator or physical device) using this
+  session's real `.pte` artifact, now that a genuine export exists to
+  test against.
+- Directly check `arm-ai-optimization-challenge.devpost.com/rules` and
+  the Qwen2.5-0.5B-Instruct Hugging Face model card from an unrestricted
+  environment — both are still unverified claims this session had to
+  proceed on pragmatically rather than confirm.
