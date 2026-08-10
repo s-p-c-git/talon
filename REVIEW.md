@@ -572,3 +572,95 @@ one section meant to catch problems before a judge does.
   `.pte` exists; consider whether to set local git identity for this
   repo directly (open decision, not made unilaterally by any session so
   far).
+
+### 2026-08-10 — CI emulator smoke test passing: app installs, loads the real .pte, generates output
+
+**What changed**
+- New `emulator-smoke-test` workflow (`.github/workflows/emulator-smoke-test.yml`)
+  and `app/src/androidTest/java/com/talon/demo/SmokeTest.kt`: installs the
+  real Qwen2.5-0.5B-Instruct `.pte` + tokenizer from `qwen-export-pilot`
+  onto an Android emulator, launches `MainActivity` for real, clicks the
+  prompt button, and asserts real generated output appears. **First
+  fully green run: `31404727059`, commit `ed05755`** —
+  `BUILD SUCCESSFUL in 1m 43s`, `Finished 1 tests`, `(0 failed)`,
+  confirmed from the raw job log, not just the green checkmark.
+- Deliberately **not** a substitute for the physical-device/KleidiAI
+  benchmark item — GH-hosted runners are x86_64, so this runs on an
+  x86_64 emulator and exercises none of XNNPACK's Arm-specific KleidiAI
+  kernels. It proves the app/model-loading/generation code path
+  genuinely works end to end, which no session had been able to verify
+  without a physical device; it says nothing about Arm performance.
+  `SUBMISSION_CHECKLIST.md` is explicit about that distinction.
+- Kept as a **separate workflow file**, not a job inside `build.yml`
+  (explicit instruction this session), since it's heavier and more
+  failure-prone (full emulator boot + instrumented test) than Build's
+  other jobs and shouldn't couple its status to theirs. Chained via
+  `workflow_run` (fires after `Build` completes with `conclusion ==
+  'success'`) instead of a same-workflow `needs:`, since it depends on
+  `qwen-export-pilot`'s uploaded `.pte`/tokenizer artifacts from that
+  other workflow's run — pulled via `actions/download-artifact`'s
+  `run-id` + `github-token` cross-run download. **Confirmed working**
+  from the actual run: both the `workflow_run` trigger and the cross-run
+  artifact download worked on the very first real attempt.
+- Real things found and fixed to get here, each verified rather than
+  assumed, in order:
+  1. The `executorch-android` AAR does bundle an x86_64 `libexecutorch.so`
+     (confirmed via `unzip -l` against the actual 1.4.0 AAR) — an x86_64
+     emulator is viable at all only because of this.
+  2. `app/build.gradle.kts` hardcoded `arm64-v8a`-only `abiFilters`
+     (deliberately, for the real target hardware), so the shipped APK
+     never packaged the x86_64 lib even though the AAR carries it. Made
+     `abiFilters` overridable via `-PabiFilters=...`, CI-only, default
+     untouched.
+  3. First real run got much further than expected on the first try —
+     model loaded, `tokenizer.json`-pushed-as-`tokenizer.bin` worked
+     (confirmed against ExecuTorch's own
+     `LlmModuleInstrumentationTest.kt` that the tokenizer loader
+     content-sniffs format rather than trusting the filename, then
+     verified for real against Qwen's actual HF-format tokenizer) —
+     but crashed ~10s in: `IllegalStateException: Cannot close module
+     while method is executing`. Root cause was in the test, not the
+     app: `MainActivity` streams tokens into `outputView` as they
+     arrive, so `outputText().isNotBlank()` goes true after the first
+     token while `generate()` (up to 128 tokens) is still running on a
+     background thread; the test then returned and
+     `ActivityScenario.use{}` closed the scenario — tearing down the
+     Activity, and `llmModule.close()`, mid-generate. Fixed by waiting
+     for the streamed output to actually stabilize (5s unchanged)
+     instead of just appearing.
+
+**Decisions made this session**
+- Split the emulator job into its own workflow file per explicit
+  instruction, accepting the added complexity of cross-workflow
+  artifact passing (`workflow_run` + `run-id` download) over the
+  simpler same-workflow `needs:` a single `build.yml` job would have
+  allowed.
+- Fix test-harness bugs in the test, not the app, when the app's actual
+  behavior (streaming tokens, rejecting concurrent close during
+  generate) is reasonable on its own terms — the first emulator failure
+  was a race the test created by tearing down too early, not a defect
+  in `MainActivity.kt`.
+
+**Deviations from CLAUDE.md constraints or the standing plan**
+- None.
+
+**Open questions / blockers**
+- Still no physical Arm64 device — the real benchmark, KleidiAI
+  comparison, and `i8mm` validation remain genuinely blocked on
+  hardware, unchanged from every prior entry.
+- Llama weights and the framework-based-eligibility/Qwen-license claims
+  from the previous entry are still exactly as open as documented there.
+
+**Checklist state**
+- `SUBMISSION_CHECKLIST.md`: split the physical-device line into two —
+  the emulator functional smoke test (now closed, CI-verified) and the
+  real physical-Arm64-device item (still open), explicit that the first
+  is not a substitute for the second.
+
+**Next session should start with**
+- The physical Arm64 device is now the single highest-leverage remaining
+  gap: build/export/functional-correctness are all CI-proven, but
+  KleidiAI's actual performance claim has no evidence yet.
+- If a device becomes available: `adb push`/`adb install` this session's
+  real `.pte` artifact directly (already proven to load and generate via
+  the emulator test) rather than re-deriving anything.

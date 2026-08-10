@@ -86,8 +86,20 @@ Deadline: **Aug 14, 2026 @ 4:00pm PDT**
       on, and Qwen2.5-0.5B-Instruct's exact license per its HF model
       card — confirm both from an unrestricted environment before
       finalizing.
+- [x] App installs, loads a real exported `.pte` + tokenizer, and
+      generates real output — **functional smoke test passing in CI,
+      2026-08-10** (`.github/workflows/emulator-smoke-test.yml`, run
+      `31404727059`, commit `ed05755`: `BUILD SUCCESSFUL`, `Finished 1
+      tests`, `0 failed`). **This is not the item below it.** GH-hosted
+      runners are x86_64, so this runs on an x86_64 Android emulator —
+      it proves the app/model-loading/generation code path genuinely
+      works end to end, but exercises none of XNNPACK's KleidiAI
+      Arm-specific kernels and says nothing about real performance.
+      Still open: an actual physical Arm64 device with `i8mm` support
+      for the item below.
 - [ ] App installs and runs on a physical Arm64 Android device with
-      `i8mm` support
+      `i8mm` support (KleidiAI kernels actually exercised — the item
+      above is a CI stand-in for this, not a substitute)
 - [ ] Benchmark run completes and `results/benchmark_log.csv` populates
 - [ ] Baseline-vs-KleidiAI comparison captured in `results/README.md`
 
