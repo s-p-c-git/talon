@@ -30,7 +30,16 @@ class SmokeTest {
                 activity.findViewById<Button>(R.id.runPromptButton).performClick()
             }
 
-            waitFor(GENERATE_TIMEOUT_MS) { outputText(scenario).isNotBlank() }
+            // MainActivity streams tokens into outputView as they arrive, so
+            // "non-blank" is true after just the first token while generate()
+            // (up to 128 tokens) is still running in the background. Closing
+            // the scenario at that point tears down the Activity -- and
+            // llmModule.close() -- while generate() is mid-call, which
+            // ExecuTorch correctly rejects (IllegalStateException: Cannot
+            // close module while method is executing). Confirmed via CI
+            // failure 2026-08-10. Wait for the streamed text to actually
+            // stop changing instead of just appearing.
+            waitForStableOutput(scenario, GENERATE_TIMEOUT_MS)
 
             val output = outputText(scenario)
             val status = statusText(scenario)
@@ -63,8 +72,30 @@ class SmokeTest {
         throw AssertionError("Condition not met within ${timeoutMs}ms")
     }
 
+    /** Waits for streamed output to stop changing, not just appear. */
+    private fun waitForStableOutput(scenario: ActivityScenario<MainActivity>, timeoutMs: Long) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        var lastText = ""
+        var stableSince = 0L
+        while (System.currentTimeMillis() < deadline) {
+            val text = outputText(scenario)
+            if (text.isNotBlank()) {
+                if (text != lastText) {
+                    lastText = text
+                    stableSince = System.currentTimeMillis()
+                } else if (System.currentTimeMillis() - stableSince >= STABLE_WINDOW_MS) {
+                    return
+                }
+            }
+            Thread.sleep(POLL_INTERVAL_MS)
+        }
+        throw AssertionError("Output did not stabilize within ${timeoutMs}ms (last seen: '$lastText')")
+    }
+
     companion object {
         private const val MODEL_LOAD_TIMEOUT_MS = 120_000L
         private const val GENERATE_TIMEOUT_MS = 180_000L
+        private const val STABLE_WINDOW_MS = 5_000L
+        private const val POLL_INTERVAL_MS = 1_000L
     }
 }
