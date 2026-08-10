@@ -1,0 +1,80 @@
+name: Emulator Smoke Test
+
+# Separate from build.yml on purpose: this job is heavier and more
+# failure-prone (full emulator boot + instrumented test run) than the
+# other Build jobs, and shouldn't couple its status to theirs. Chained
+# via workflow_run instead of a same-workflow `needs:`, since it depends
+# on build.yml's qwen-export-pilot job's uploaded .pte/tokenizer
+# artifacts, which live in that other workflow's run.
+on:
+  workflow_run:
+    workflows: ["Build"]
+    types: [completed]
+
+permissions:
+  actions: read
+
+jobs:
+  emulator-smoke-test:
+    name: Install + generate on Android emulator (functional smoke test — x86_64 emulator, doesn't exercise KleidiAI's Arm kernels)
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Download .pte artifact (from the triggering Build run)
+        uses: actions/download-artifact@v4
+        with:
+          name: qwen2.5-0.5b-instruct-pte
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download tokenizer artifact (from the triggering Build run)
+        uses: actions/download-artifact@v4
+        with:
+          name: qwen2.5-0.5b-instruct-tokenizer
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable KVM group perms
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run smoke test on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          script: |
+            adb wait-for-device
+            adb shell mkdir -p /data/local/tmp/llama
+            # MainActivity.kt hardcodes tokenizer.bin as the filename, but
+            # LlmModule's tokenizer loader auto-detects format from file
+            # content, not the name (confirmed against ExecuTorch's own
+            # LlmModuleInstrumentationTest.kt) — pushing Qwen's HF-format
+            # tokenizer.json under that name is expected to work.
+            adb push model.pte /data/local/tmp/llama/model.pte
+            adb push tokenizer.json /data/local/tmp/llama/tokenizer.bin
+            # -PabiFilters=x86_64: app/build.gradle.kts defaults to
+            # arm64-v8a-only (the real target hardware); override just for
+            # this emulator run, which is x86_64 since that's what
+            # GH-hosted runners actually have. Never override for a real
+            # build — see that file's comment.
+            ./gradlew :app:connectedDebugAndroidTest -PabiFilters=x86_64 --stacktrace
+
+      - name: Upload instrumented test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: emulator-smoke-test-report
+          path: app/build/reports/androidTests/connected/**
