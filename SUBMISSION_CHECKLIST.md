@@ -108,7 +108,17 @@ Deadline: **Aug 14, 2026 @ 4:00pm PDT**
       `i8mm` support (KleidiAI kernels actually exercised — the item
       above is a CI stand-in for this, not a substitute)
 - [ ] Benchmark run completes and `results/benchmark_log.csv` populates
-- [ ] Baseline-vs-KleidiAI comparison captured in `results/README.md`
+- [ ] Baseline-vs-KleidiAI comparison captured in `results/README.md`.
+      Prep work done 2026-08-10 so this is a flip-a-flag exercise once a
+      device exists: `scripts/build_kleidi_off_aar.sh` builds a second
+      AAR with `EXECUTORCH_XNNPACK_ENABLE_KLEIDI=OFF` (the "on" side
+      just uses the existing default Maven artifact — no need to
+      rebuild that from source too); `./gradlew :app:assembleDebug
+      -PkleidiOff=true` builds the app against it. Real compile
+      verification via `.github/workflows/kleidi-off-aar.yml`
+      (`workflow_dispatch`, not run automatically — it's a ~20-30min
+      native build) is [status TBD, trigger and check before trusting
+      this line].
 
 ## MVP scope discipline
 

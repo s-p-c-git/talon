@@ -1,0 +1,62 @@
+name: Build KleidiAI-off AAR
+
+# Manual trigger only, not on every push: this is a full ExecuTorch
+# native C++ build (~20-30 min), only needed when actually preparing
+# for the baseline-vs-KleidiAI device comparison in results/README.md,
+# not on every commit.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  build-kleidi-off-aar:
+    name: Build app/libs/executorch-kleidi-off.aar and compile the app against it
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install compileSdk platform, build-tools, and NDK
+        run: sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" "ndk;29.0.14206865"
+
+      - name: Clone ExecuTorch checkout
+        run: git clone --recurse-submodules --shallow-submodules https://github.com/pytorch/executorch.git
+
+      - name: Install ExecuTorch build deps
+        working-directory: executorch
+        run: |
+          python -m pip install --upgrade pip
+          python install_executorch.py --minimal
+
+      - name: Build KleidiAI-off AAR
+        env:
+          ANDROID_HOME: ${{ env.ANDROID_HOME }}
+        run: ./scripts/build_kleidi_off_aar.sh
+
+      - name: Upload AAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: executorch-kleidi-off-aar
+          path: app/libs/executorch-kleidi-off.aar
+
+      - name: Compile the app against it (real compile, not just "should work")
+        run: ./gradlew :app:assembleDebug -PkleidiOff=true --stacktrace
+
+      - name: Upload debug APK (KleidiAI off)
+        uses: actions/upload-artifact@v4
+        with:
+          name: talon-debug-apk-kleidi-off
+          path: app/build/outputs/apk/debug/*.apk

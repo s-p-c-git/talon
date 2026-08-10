@@ -61,13 +61,26 @@ dependencies {
     // latest published release; re-verify against
     // https://repo1.maven.org/maven2/org/pytorch/executorch-android/
     // before bumping further, and re-run CI, don't assume.
-    implementation("org.pytorch:executorch-android:1.4.0")
-
-    // Only needed if you build a custom ExecuTorch AAR from source (e.g. to
-    // add a non-default backend like QNN or Vulkan) via
-    // `scripts/setup.sh --build-aar`. Uncomment and remove the Maven
-    // dependency above if you do.
-    // implementation(files("libs/executorch.aar"))
+    //
+    // -PkleidiOff=true swaps this for a locally-built AAR with KleidiAI
+    // kernels disabled (see scripts/build_kleidi_off_aar.sh), for the
+    // baseline-vs-KleidiAI comparison in results/README.md. That AAR is
+    // built from whatever executorch commit scripts/setup.sh happened to
+    // clone, not necessarily this same 1.4.0 release — re-verify via a
+    // real compile (not assumption) before trusting a -PkleidiOff build,
+    // same lesson as the 1.1.0-vs-1.4.0 API drift above.
+    if (project.hasProperty("kleidiOff")) {
+        implementation(files("libs/executorch-kleidi-off.aar"))
+        // A local files() dependency has no POM, so it doesn't pull these
+        // in transitively the way the Maven artifact does — added
+        // explicitly, versions matched against executorch-android
+        // 1.4.0's own published POM (checked 2026-08-10) so both build
+        // variants link against the same runtime deps.
+        implementation("com.facebook.fbjni:fbjni:0.7.0")
+        implementation("com.facebook.soloader:nativeloader:0.10.5")
+    } else {
+        implementation("org.pytorch:executorch-android:1.4.0")
+    }
 
     // CI-only: drives app/src/androidTest/.../SmokeTest.kt (real emulator
     // install + model load + generate, see build.yml's emulator-smoke-test
