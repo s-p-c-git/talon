@@ -9,6 +9,12 @@ AI Optimization Challenge 2026 (Track 3: Mobile AI). It builds on top of
 ExecuTorch (PyTorch Edge), which is separately licensed — see
 https://github.com/pytorch/executorch for its license terms.
 
+`scripts/convert_qwen_checkpoint.py` includes a small helper function
+(`get_mapped_key`) and a Qwen2.5 weight-key mapping adapted from
+pytorch/torchtune (torchtune/models/convert_weights.py) and
+pytorch/executorch (examples/models/qwen2_5/convert_weights.py), both
+BSD-3-Clause licensed, Copyright (c) Meta Platforms, Inc. and affiliates.
+
 Per Section 4(d) of the Apache License 2.0, any redistribution of this
 work or derivative works must reproduce this NOTICE file's attribution
 statement.

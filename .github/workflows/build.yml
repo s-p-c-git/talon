@@ -55,13 +55,13 @@ jobs:
           ./install_requirements.sh
 
       - name: Install this project's + export-only deps
-        run: pip install -r scripts/requirements.txt huggingface_hub safetensors torchtune
+        run: pip install -r scripts/requirements.txt huggingface_hub safetensors
 
       - name: Download Qwen2.5-0.5B-Instruct checkpoint
         run: hf download Qwen/Qwen2.5-0.5B-Instruct --local-dir qwen2.5-0.5b-hf
 
       - name: Convert HF checkpoint to Meta format
-        run: python3 executorch/examples/models/qwen2_5/convert_weights.py qwen2.5-0.5b-hf qwen2.5-0.5b-meta.pth
+        run: python3 scripts/convert_qwen_checkpoint.py qwen2.5-0.5b-hf qwen2.5-0.5b-meta.pth
 
       - name: Export + quantize .pte
         run: |

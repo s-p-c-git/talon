@@ -23,8 +23,14 @@ Qwen2.5 (--family qwen2_5): the pilot path for this project, since the
 cards — confirm before relying on this) Apache-2.0 licensed, so there's
 no manual license-acceptance wait. Two steps before this script can run:
   hf download Qwen/Qwen2.5-0.5B-Instruct --local-dir <dir>
-  python executorch/examples/models/qwen2_5/convert_weights.py <dir> <out.pth>
-`<out.pth>` is then this script's --checkpoint.
+  python scripts/convert_qwen_checkpoint.py <dir> <out.pth>
+`<out.pth>` is then this script's --checkpoint. (Use our own
+convert_qwen_checkpoint.py, not executorch's own
+examples/models/qwen2_5/convert_weights.py — the latter imports the full
+`torchtune` package just for one helper function, which pulls in a
+torchao submodule incompatible with the torchao nightly ExecuTorch's own
+install_requirements.py pins. Confirmed via CI failure 2026-08-10 — see
+REVIEW.md.)
 
 NOTE ON EXECUTORCH CLI SURFACE
 -------------------------------

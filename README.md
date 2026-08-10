@@ -92,7 +92,7 @@ pip install -r scripts/requirements.txt
 
 # Qwen2.5 pilot (no license wait):
 hf download Qwen/Qwen2.5-0.5B-Instruct --local-dir qwen2.5-0.5b-hf
-python3 executorch/examples/models/qwen2_5/convert_weights.py qwen2.5-0.5b-hf qwen2.5-0.5b-meta.pth
+python3 scripts/convert_qwen_checkpoint.py qwen2.5-0.5b-hf qwen2.5-0.5b-meta.pth
 python3 scripts/export_model.py --family qwen2_5 --model qwen2_5_0_5b \
   --checkpoint qwen2.5-0.5b-meta.pth \
   --params executorch/examples/models/qwen2_5/config/0_5b_config.json \
