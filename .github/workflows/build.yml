@@ -37,6 +37,12 @@ jobs:
   qwen-export-pilot:
     name: Export Qwen2.5-0.5B-Instruct .pte end-to-end (real pilot, not just a reachability check)
     runs-on: ubuntu-latest
+    env:
+      # Pinned once this job first went green end-to-end, so the cache key
+      # below is stable across runs and upstream main can't change the
+      # ground truth out from under us. Bump deliberately (new SHA, let CI
+      # re-verify from a clean cache) — don't float on main.
+      EXECUTORCH_REF: 52b176fd9d5d5252f5010e60f17adfea83e8433d
     steps:
       - uses: actions/checkout@v4
 
@@ -45,19 +51,47 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Clone ExecuTorch checkout
-        run: git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com/pytorch/executorch.git
+      - name: Clone ExecuTorch checkout (pinned)
+        run: |
+          git clone --filter=blob:none https://github.com/pytorch/executorch.git
+          cd executorch
+          git checkout "$EXECUTORCH_REF"
+          git submodule update --init --recursive --depth 1
+
+      # Staged, content-addressed caching: each expensive step is gated on
+      # its own cache-hit, so a run only re-executes the step(s) whose
+      # inputs actually changed instead of redoing everything after any
+      # single downstream fix. A cache miss falls through to the real
+      # command — nothing here is allowed to silently skip on a bad cache.
+      - name: Cache ExecuTorch install
+        id: cache-env
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.pythonLocation }}
+          key: executorch-env-${{ runner.os }}-${{ env.EXECUTORCH_REF }}-${{ hashFiles('scripts/requirements.txt') }}
 
       - name: Install ExecuTorch (dev/source path — required for extension.llm.export.export_llm and examples/)
+        if: steps.cache-env.outputs.cache-hit != 'true'
         working-directory: executorch
         run: |
           python -m pip install --upgrade pip
           ./install_requirements.sh
 
       - name: Install this project's + export-only deps
+        if: steps.cache-env.outputs.cache-hit != 'true'
         run: pip install -r scripts/requirements.txt huggingface_hub safetensors
 
+      - name: Cache Qwen2.5-0.5B-Instruct checkpoint
+        id: cache-checkpoint
+        uses: actions/cache@v4
+        with:
+          path: qwen2.5-0.5b-hf
+          # Bump the -v1 suffix only if the HF repo's contents ever change
+          # underneath this pin; the checkpoint itself is otherwise static.
+          key: qwen2.5-0.5b-instruct-checkpoint-v1
+
       - name: Download Qwen2.5-0.5B-Instruct checkpoint
+        if: steps.cache-checkpoint.outputs.cache-hit != 'true'
         run: hf download Qwen/Qwen2.5-0.5B-Instruct --local-dir qwen2.5-0.5b-hf
 
       - name: Convert HF checkpoint to Meta format
