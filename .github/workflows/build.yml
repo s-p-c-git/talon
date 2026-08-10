@@ -58,7 +58,7 @@ jobs:
         run: pip install -r scripts/requirements.txt huggingface_hub safetensors torchtune
 
       - name: Download Qwen2.5-0.5B-Instruct checkpoint
-        run: huggingface-cli download Qwen/Qwen2.5-0.5B-Instruct --local-dir qwen2.5-0.5b-hf
+        run: hf download Qwen/Qwen2.5-0.5B-Instruct --local-dir qwen2.5-0.5b-hf
 
       - name: Convert HF checkpoint to Meta format
         run: python3 executorch/examples/models/qwen2_5/convert_weights.py qwen2.5-0.5b-hf qwen2.5-0.5b-meta.pth

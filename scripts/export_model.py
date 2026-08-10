@@ -22,7 +22,7 @@ Qwen2.5 (--family qwen2_5): the pilot path for this project, since the
 0.5B/1.5B checkpoints are ungated on Hugging Face and (per their model
 cards — confirm before relying on this) Apache-2.0 licensed, so there's
 no manual license-acceptance wait. Two steps before this script can run:
-  huggingface-cli download Qwen/Qwen2.5-0.5B-Instruct --local-dir <dir>
+  hf download Qwen/Qwen2.5-0.5B-Instruct --local-dir <dir>
   python executorch/examples/models/qwen2_5/convert_weights.py <dir> <out.pth>
 `<out.pth>` is then this script's --checkpoint.
 

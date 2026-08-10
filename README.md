@@ -91,7 +91,7 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -r scripts/requirements.txt
 
 # Qwen2.5 pilot (no license wait):
-huggingface-cli download Qwen/Qwen2.5-0.5B-Instruct --local-dir qwen2.5-0.5b-hf
+hf download Qwen/Qwen2.5-0.5B-Instruct --local-dir qwen2.5-0.5b-hf
 python3 executorch/examples/models/qwen2_5/convert_weights.py qwen2.5-0.5b-hf qwen2.5-0.5b-meta.pth
 python3 scripts/export_model.py --family qwen2_5 --model qwen2_5_0_5b \
   --checkpoint qwen2.5-0.5b-meta.pth \
