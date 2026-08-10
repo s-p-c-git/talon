@@ -18,4 +18,6 @@ optimization" criterion: a direct before/after number on the same device.
 | **Delta** | _fill in_ | _fill in_ | — | — |
 
 Device used: _model, chipset, RAM — fill in_
-Model: _fill in (e.g. Llama 3.2 1B, 4-bit groupwise)_
+Model: Qwen2.5-0.5B-Instruct, 4-bit groupwise (CI-verified export; Llama
+also supported via `--family llama` once its license is accepted — see
+`SUBMISSION_CHECKLIST.md`)

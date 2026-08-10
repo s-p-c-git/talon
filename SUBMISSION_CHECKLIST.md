@@ -38,15 +38,22 @@ Deadline: **Aug 14, 2026 @ 4:00pm PDT**
       the repo's "About" section on GitHub. `v0.1.0-mvp-scaffold` tag
       and a published "Initial scaffold" release both exist, pinned to
       the original scaffold commit.
-- [ ] Project Overview — pull from `README.md` intro
-- [ ] Functionality / Output — the ExecuTorch + KleidiAI inference path,
-      MemoryBridge stub, benchmark harness and its CSV output
-- [ ] Setup Instructions — README Steps 1–5, tested end-to-end on an
-      actual Arm64 Android device before submitting (not just read
-      through)
+- [x] Project Overview — drafted in `docs/DEVPOST_SUBMISSION.md`
+      (2026-08-10), ready to paste into the Devpost form
+- [x] Functionality / Output — drafted in `docs/DEVPOST_SUBMISSION.md`,
+      accurately distinguishes what's CI-verified (build, export, an
+      emulator-based functional smoke test) from what still needs a
+      physical device (real KleidiAI performance)
+- [ ] Setup Instructions — draft in `docs/DEVPOST_SUBMISSION.md` points
+      to README Steps 1–5, but still needs the real thing this item
+      actually requires: **tested end-to-end on an actual Arm64 Android
+      device before submitting** (not just read through, and not
+      satisfied by the emulator smoke test — see the checklist item
+      above about physical Arm64 device)
 - [ ] Optional demo video (≤3 min, public on YouTube/Vimeo/Youku) —
       show the app loading the model, running a prompt, and the
-      benchmark log populating
+      benchmark log populating; needs the physical device first (see
+      `docs/DEVPOST_SUBMISSION.md`'s note on this)
 
 ## Build-and-verify (do this yourself, not just read the README)
 

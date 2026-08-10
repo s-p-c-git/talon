@@ -9,7 +9,7 @@
 │   MainActivity ──▶ MemoryBridge ──▶ [stubbed response]   │
 │         │                                                │
 │         ▼                                                │
-│   ExecuTorch LlamaModule (XNNPACK + KleidiAI)             │
+│   ExecuTorch LlmModule (XNNPACK + KleidiAI)               │
 │         │                                                │
 │         ▼                                                │
 │   BenchmarkHarness ──▶ results/benchmark_log.csv          │
