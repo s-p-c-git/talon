@@ -23,7 +23,11 @@ done
 
 echo "==> Cloning ExecuTorch (needed for scripts/export_model.py)"
 if [ ! -d "executorch" ]; then
-  git clone https://github.com/pytorch/executorch.git
+  # --recurse-submodules: extension/llm/tokenizers is a submodule that
+  # install_requirements.py pip-installs directly — without it, that
+  # directory is empty and the install fails with "not installable"
+  # (found the hard way via CI, 2026-08-10).
+  git clone --recurse-submodules --shallow-submodules https://github.com/pytorch/executorch.git
 fi
 
 if [ "$BUILD_AAR" = true ]; then

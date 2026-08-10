@@ -46,7 +46,7 @@ jobs:
           python-version: "3.11"
 
       - name: Clone ExecuTorch checkout
-        run: git clone --depth 1 https://github.com/pytorch/executorch.git
+        run: git clone --depth 1 --recurse-submodules --shallow-submodules https://github.com/pytorch/executorch.git
 
       - name: Install ExecuTorch (dev/source path — required for extension.llm.export.export_llm and examples/)
         working-directory: executorch
