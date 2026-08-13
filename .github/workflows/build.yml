@@ -31,7 +31,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: talon-debug-apk
+          name: talon-debug-kleidi-on
           path: app/build/outputs/apk/debug/*.apk
 
   qwen-export-pilot:

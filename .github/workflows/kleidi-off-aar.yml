@@ -33,7 +33,19 @@ jobs:
         run: sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0" "ndk;29.0.14206865"
 
       - name: Clone ExecuTorch checkout
-        run: git clone --recurse-submodules --shallow-submodules https://github.com/pytorch/executorch.git
+        run: |
+          # A blanket --recurse-submodules --shallow-submodules tries to
+          # shallow-fetch every registered submodule, including
+          # third-party/ao (TorchAO) -- which fails ("shallow file has
+          # changed since we read it" / can't fetch its pinned commit),
+          # confirmed via a real CI failure 2026-08-10. We don't need ao
+          # here (that's only pulled in when EXECUTORCH_BUILD_KERNELS_TORCHAO
+          # is set, which this build doesn't set) -- same fix already
+          # proven in qwen-export-pilot's clone step: partial clone, then
+          # init only the one submodule this build actually needs.
+          git clone --filter=blob:none https://github.com/pytorch/executorch.git
+          cd executorch
+          git submodule update --init --recursive --depth 1 -- extension/llm/tokenizers
 
       - name: Install ExecuTorch build deps
         working-directory: executorch
@@ -58,5 +70,5 @@ jobs:
       - name: Upload debug APK (KleidiAI off)
         uses: actions/upload-artifact@v4
         with:
-          name: talon-debug-apk-kleidi-off
+          name: talon-debug-kleidi-off
           path: app/build/outputs/apk/debug/*.apk

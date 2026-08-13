@@ -23,11 +23,17 @@ done
 
 echo "==> Cloning ExecuTorch (needed for scripts/export_model.py)"
 if [ ! -d "executorch" ]; then
-  # --recurse-submodules: extension/llm/tokenizers is a submodule that
-  # install_requirements.py pip-installs directly — without it, that
-  # directory is empty and the install fails with "not installable"
-  # (found the hard way via CI, 2026-08-10).
-  git clone --recurse-submodules --shallow-submodules https://github.com/pytorch/executorch.git
+  # extension/llm/tokenizers is a submodule install_requirements.py
+  # pip-installs directly -- without it, that directory is empty and
+  # the install fails with "not installable" (found the hard way via
+  # CI, 2026-08-10). A blanket --recurse-submodules --shallow-submodules
+  # tries to shallow-fetch every registered submodule though, including
+  # third-party/ao (TorchAO) -- which isn't needed here and can fail a
+  # shallow fetch if its pinned commit has aged out of reach (also found
+  # via CI, 2026-08-10). Scope the submodule init to just the one
+  # submodule actually needed instead.
+  git clone --filter=blob:none https://github.com/pytorch/executorch.git
+  (cd executorch && git submodule update --init --recursive --depth 1 -- extension/llm/tokenizers)
 fi
 
 if [ "$BUILD_AAR" = true ]; then
