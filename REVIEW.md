@@ -664,3 +664,141 @@ one section meant to catch problems before a judge does.
 - If a device becomes available: `adb push`/`adb install` this session's
   real `.pte` artifact directly (already proven to load and generate via
   the emulator test) rather than re-deriving anything.
+
+---
+
+### 2026-08-13 — Both APK variants (KleidiAI on/off) now real, downloadable CI artifacts; Devpost draft; caught a session-wide date error
+
+**What changed**
+- `docs/DEVPOST_SUBMISSION.md` drafted: Project Overview, Functionality/
+  Output, Setup Instructions sections, honest about what's CI-verified
+  vs. still needs a physical device.
+- Fixed two stale-doc references found while drafting the above:
+  `docs/ARCHITECTURE.md`'s leftover `LlamaModule` mention (should be
+  `LlmModule`, matching the already-fixed `MainActivity.kt`), and
+  `results/README.md`'s example model name (was still a generic "Llama
+  3.2 1B" placeholder — updated to the actual Qwen2.5-0.5B-Instruct
+  pilot this repo now exports).
+- `.github/workflows/build.yml`'s `assemble` job artifact renamed
+  `talon-debug-apk` → `talon-debug-kleidi-on`, to make room for a second
+  variant and name both unambiguously.
+- New `.github/workflows/kleidi-off-aar.yml` (`workflow_dispatch` only,
+  ~20-30min native build): clones ExecuTorch, builds a
+  KleidiAI-disabled AAR via new `scripts/build_kleidi_off_aar.sh`,
+  compiles the app against it (`./gradlew :app:assembleDebug
+  -PkleidiOff=true`), uploads both the AAR and the resulting APK
+  (`talon-debug-kleidi-off`) as artifacts.
+- `app/build.gradle.kts`: `ndk.abiFilters` made overridable via
+  `-PabiFilters=` (default unchanged, `arm64-v8a`); added a conditional
+  dependency block so `-PkleidiOff=true` swaps the Maven
+  `org.pytorch:executorch-android:1.4.0` dependency for the local
+  `libs/executorch-kleidi-off.aar` plus its transitive deps
+  (`fbjni`, `nativeloader` — needed explicitly since a local `files()`
+  dependency carries no POM to pull them in automatically).
+- `EXECUTORCH_XNNPACK_ENABLE_KLEIDI` confirmed (by reading
+  `tools/cmake/preset/default.cmake` directly, not assumed) to be a
+  plain CMake `option()`, default `ON` — legitimately overridable with
+  `-D` on top of the same configure+build steps
+  `build_android_library.sh` runs, which is what
+  `scripts/build_kleidi_off_aar.sh` does (single ABI, arm64-v8a, the
+  real target hardware — no need for x86_64 here).
+- `scripts/setup.sh`'s clone step fixed to match the same submodule
+  pattern established elsewhere this project (see below).
+
+**Real CI failures hit and fixed getting the KleidiAI-off variant to
+actually compile — three attempts, each a distinct real root cause:**
+1. `third-party/ao` (TorchAO) submodule shallow-fetch failure inside
+   `kleidi-off-aar.yml`'s clone step — the same class of failure already
+   fixed once in `build.yml`'s `qwen-export-pilot` job for a different
+   submodule (`extension/llm/tokenizers`), not yet applied here. Fixed
+   by switching to `git clone --filter=blob:none` + scoped
+   `git submodule update --init --recursive --depth 1 -- <path>` for
+   only the submodule actually needed, in both `kleidi-off-aar.yml` and
+   `scripts/setup.sh` (which had the same unscoped pattern).
+2. Link failure: `unable to find library -lextension_asr_runner`. Root
+   cause: `build_kleidi_off_aar.sh`'s cmake invocation was a hand-picked
+   subset of `build_android_library.sh`'s real flags, and had dropped
+   `-DEXECUTORCH_BUILD_EXTENSION_ASR_RUNNER=ON` — the JNI target links
+   against it regardless of whether anything else needs it. Fixed by
+   passing the full flag set `build_android_library.sh`'s own
+   `build_android_native_library()` function uses, not just the subset
+   that looked relevant to KleidiAI.
+3. Third attempt (commit `a46c22a`) succeeded end to end: AAR built,
+   app compiled against it, `talon-debug-kleidi-off` artifact uploaded.
+
+**Confirmed state as of this entry (both real CI artifacts, not
+assumptions):**
+- `talon-debug-kleidi-on` — `build.yml` run
+  `31719167843` (https://github.com/s-p-c-git/talon/actions/runs/31719167843),
+  commit `a46c22a`, conclusion `success`, artifact id `9188568742`
+  (6.6 MB), created 2026-08-13T16:09:47Z.
+- `talon-debug-kleidi-off` — `kleidi-off-aar.yml` run
+  `31719176397` (https://github.com/s-p-c-git/talon/actions/runs/31719176397),
+  same commit, conclusion `success`, artifact id `9189568276`
+  (42.3 MB), created 2026-08-13T16:38:54Z. Companion
+  `executorch-kleidi-off-aar` artifact (id `9189551463`, 38.2 MB) also
+  uploaded, in case the AAR itself is useful without rebuilding.
+- Both artifacts expire 2026-11-11 (GitHub's default 90-day retention);
+  download either from its run's Actions page (Summary tab →
+  Artifacts section) — the API `archive_download_url` requires an
+  authenticated request, so the run page is the practical way to pull
+  these into BrowserStack App Live or a physical device.
+
+**Decisions made this session**
+- Did not touch `app/` logic itself, per explicit instruction — the
+  KleidiAI-off variant needed only a build-flag change
+  (`EXECUTORCH_XNNPACK_ENABLE_KLEIDI=OFF` plus the CMake flags in fix
+  #2 above, none of which are app-code) and a Gradle dependency swap.
+  No fallback to two separate export configs was needed.
+- Kept `kleidi-off-aar.yml` as `workflow_dispatch`-only rather than
+  wiring it into every push to `main`, since it's a ~20-30min native
+  build that only needs to run when actually producing a comparison
+  artifact — same reasoning as why it's a separate workflow file from
+  `build.yml` rather than an extra job in it.
+
+**Deviations from CLAUDE.md constraints or the standing plan**
+- None.
+
+**Open questions / blockers**
+- **Critical, self-caught this session**: for roughly the first half of
+  this session I was operating on the assumption that the date was
+  2026-08-10 (reasoning in terms of "4 days left" repeatedly). The
+  actual system clock, verified directly via `date -u` rather than
+  assumed, is 2026-08-13 — meaning roughly 31 hours remained to the
+  Aug 14 4:00pm PDT deadline at the time this was caught, not several
+  days. I self-corrected as soon as I noticed (a suspicious scheduled
+  timestamp prompted a direct check) and flagged it to the user
+  immediately rather than continuing on the wrong assumption. Any prior
+  session or entry that reasoned about "days remaining" should be
+  re-read with this correction in mind — the underlying facts recorded
+  (what's built, what's tested) are unaffected, only time-remaining
+  framing was wrong.
+- Physical-device KleidiAI benchmark is still the single biggest open
+  item and, per the corrected timeline, now genuinely time-constrained.
+  Both APK variants exist and are downloadable, which unblocks getting
+  them onto BrowserStack App Live or a physical device the moment
+  either is available — but neither has actually been installed and
+  run outside CI yet.
+- An ARM64-Linux-runner fallback (GitHub-hosted `ubuntu-24.04-arm`,
+  real Arm silicon, using ExecuTorch's native CLI runner instead of the
+  Android app) was discussed as a way to get *some* real-hardware
+  KleidiAI numbers without a device farm or physical phone, but was
+  only proposed, not built — remains available as a next step if
+  BrowserStack/physical-device access doesn't come through in time.
+
+**Checklist state**
+- `SUBMISSION_CHECKLIST.md`: Devpost Project Overview and
+  Functionality/Output items marked done. Baseline-vs-KleidiAI
+  comparison-prep line updated from the "[status TBD]" placeholder to
+  reflect the confirmed-green `kleidi-off-aar.yml` run and both real
+  APK artifacts, with the three real fixes it took to get there.
+
+**Next session should start with**
+- Getting `talon-debug-kleidi-on.apk` and `talon-debug-kleidi-off.apk`
+  actually installed somewhere real (BrowserStack App Live or a
+  physical device) and producing the first real
+  `results/benchmark_log.csv` rows — this is now the critical path to
+  a complete submission, with the deadline closer than any prior entry
+  assumed.
+- Re-check remaining time against the actual clock before planning
+  further work, given the date error documented above.
