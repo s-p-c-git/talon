@@ -38,14 +38,31 @@ CMAKE_OUT="cmake-out-android-${ANDROID_ABI}"
 cd "${EXECUTORCH_DIR}"
 
 echo "==> Configuring with EXECUTORCH_XNNPACK_ENABLE_KLEIDI=OFF"
+# First real CI attempt (2026-08-13) failed at the link step: "unable to
+# find library -lextension_asr_runner". Root cause: this hand-mirrored
+# invocation had dropped -DEXECUTORCH_BUILD_EXTENSION_ASR_RUNNER=ON,
+# which build_android_library.sh sets alongside EXECUTORCH_BUILD_EXTENSION_LLM
+# -- the JNI target links against it regardless, so leaving it unset
+# broke the link even though nothing else needed it. Now passing the
+# full flag set build_android_library.sh's own
+# build_android_native_library() function uses, not just the subset
+# that looked relevant, to avoid further one-flag-at-a-time surprises.
 cmake . -DCMAKE_INSTALL_PREFIX="${CMAKE_OUT}" \
   -DCMAKE_TOOLCHAIN_FILE="${ANDROID_NDK}/build/cmake/android.toolchain.cmake" \
   -DPYTHON_EXECUTABLE=python3 \
   --preset "android-${ANDROID_ABI}" \
   -DANDROID_PLATFORM=android-26 \
+  -DEXECUTORCH_ENABLE_EVENT_TRACER=OFF \
+  -DEXECUTORCH_ANDROID_PROFILING=OFF \
   -DEXECUTORCH_BUILD_EXTENSION_LLM=ON \
   -DEXECUTORCH_BUILD_EXTENSION_LLM_RUNNER=ON \
+  -DEXECUTORCH_BUILD_EXTENSION_ASR_RUNNER=ON \
+  -DEXECUTORCH_BUILD_EXTENSION_TRAINING=ON \
   -DEXECUTORCH_BUILD_LLAMA_JNI=ON \
+  -DEXECUTORCH_BUILD_NEURON=OFF \
+  -DEXECUTORCH_BUILD_QNN=OFF \
+  -DEXECUTORCH_BUILD_VULKAN=OFF \
+  -DXNNPACK_ENABLE_ARM_SME2=ON \
   -DEXECUTORCH_XNNPACK_ENABLE_KLEIDI=OFF \
   -DFLATCC_ALLOW_WERROR=OFF \
   -DSUPPORT_REGEX_LOOKAHEAD=ON \
